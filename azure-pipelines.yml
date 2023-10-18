@@ -46,6 +46,7 @@ variables:
 steps:
 - checkout: self
 - checkout: hydrodiy
+- checkout: pygme
 
 - task: UsePythonVersion@0
   inputs:

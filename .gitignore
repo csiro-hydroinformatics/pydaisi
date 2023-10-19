@@ -16,3 +16,4 @@ pydamsi.egg-info
 nosetests.xml
 junit
 outputs/
+pydamsi/c_pydamsi.c

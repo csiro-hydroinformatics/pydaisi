@@ -24,9 +24,9 @@ ext_modules = [
     Extension(
         name="c_pydaisi",
         sources=[
-            "pydaisi/c_pydaisi.pyx",
-            "pydaisi/c_gr2m_update.c",\
-            "pydaisi/c_daisi_utils.c",\
+            "src/pydaisi/c_pydaisi.pyx",
+            "src/pydaisi/c_gr2m_update.c",\
+            "src/pydaisi/c_daisi_utils.c",\
             str(pygme_include_dir / "c_utils.c"),
         ],
         include_dirs=[\
@@ -40,6 +40,7 @@ setup(
     version=versioneer.get_version(),
     cmdclass=cmdclass,
     packages=find_packages(),
+    package_dir={"": "src"},
     install_requires=[
         "numpy>=1.8.1",
         "pandas>=0.12.1",

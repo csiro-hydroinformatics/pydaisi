@@ -20,8 +20,8 @@ from hydrodiy.io import csv
 from hydrodiy.stat import metrics
 from hydrodiy.plot import putils
 
-import c_pydamsi
-from pydamsi import gr2m_update, damsi_utils, damsi_data
+import c_pydaisi
+from pydaisi import gr2m_update, daisi_utils, daisi_data
 
 import warnings
 
@@ -31,6 +31,11 @@ FTESTS = Path(__file__).resolve().parent
 
 SITEIDS = [405218]
 NSITES = len(SITEIDS)
+
+def get_params(nparams, defaults):
+    X1 = np.clip(defaults[0]*np.random.uniform(0.2, 5, nparams), 1, 10000)
+    X2 = np.clip(defaults[1]+np.random.uniform(-0.5, 0.5, nparams), 0.1, 10)
+    return np.column_stack([X1, X2])
 
 
 def test_get_interp_params_ini(allclose):
@@ -70,8 +75,8 @@ def test_fit(allclose):
     lamP, lamE, lamQ, nu = 0., 1., 0.2, 0.2
 
     for isite in range(NSITES):
-        mthly = damsi_data.get_data(SITEIDS[isite])
-        inputs, obs, itotal, iactive, ieval = damsi_data.get_inputs_and_obs(mthly, "per1")
+        mthly = daisi_data.get_data(SITEIDS[isite])
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
         nval = len(inputs)
         model.allocate(inputs, model.noutputsmax)
         nmodel.allocate(inputs, nmodel.noutputsmax)
@@ -213,7 +218,8 @@ def test_modif_compare_with_original(allclose):
     isites = np.arange(NSITES).tolist()
     nparams = 20
     for isite in isites:
-        _, inputs, _, _, _ = get_data(isite)
+        mthly = daisi_data.get_data(SITEIDS[isite])
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
         params = get_params(nparams, gr2m.params.defaults)
 
         for iparam, (X1, X2) in enumerate(params):
@@ -288,7 +294,8 @@ def test_modif(allclose):
                     desc="comparing modif")
     res = []
     for isite in isites:
-        _, inputs, _, _, _ = get_data(isite)
+        mthly = daisi_data.get_data(SITEIDS[isite])
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
         params = get_params(nparams, nmodel.params.defaults)
 
         gr2m.allocate(inputs, gr2m.noutputsmax)
@@ -375,17 +382,17 @@ def test_modif(allclose):
                 E = inputs[i, 1]
 
                 # .. baseline variables
-                S_baseline = damsi_utils.gr2m_S_fun(X1, [S], [P], [E])
-                u_baseline = damsi_utils.gr2m_prod_S_raw2norm(X1, S_baseline)[0]
+                S_baseline = daisi_utils.gr2m_S_fun(X1, [S], [P], [E])
+                u_baseline = daisi_utils.gr2m_prod_S_raw2norm(X1, S_baseline)[0]
 
-                P3_baseline = damsi_utils.gr2m_P3_fun(X1, [S], [P], [E])
-                p3n_baseline = damsi_utils.gr2m_prod_P3_raw2norm(X1, P3_baseline)[0]
+                P3_baseline = daisi_utils.gr2m_P3_fun(X1, [S], [P], [E])
+                p3n_baseline = daisi_utils.gr2m_prod_P3_raw2norm(X1, P3_baseline)[0]
 
                 # .. modified variables
                 z = np.array([\
-                        damsi_utils.gr2m_prod_S_raw2norm(X1, [S])[0], \
-                        damsi_utils.gr2m_prod_P_raw2norm(X1, [P])[0], \
-                        damsi_utils.gr2m_prod_E_raw2norm(X1, [E])[0] \
+                        daisi_utils.gr2m_prod_S_raw2norm(X1, [S])[0], \
+                        daisi_utils.gr2m_prod_P_raw2norm(X1, [P])[0], \
+                        daisi_utils.gr2m_prod_E_raw2norm(X1, [E])[0] \
                 ])
                 w3[:10] = [1., z[0], z[1], z[2], \
                                 z[0]**2, z[1]**2, z[2]**2,
@@ -394,11 +401,11 @@ def test_modif(allclose):
 
                 ths = thetas["S"]
                 u_modif = w3.dot(ths)
-                S = damsi_utils.gr2m_prod_S_norm2raw(X1, [u_baseline+u_modif])[0]
+                S = daisi_utils.gr2m_prod_S_norm2raw(X1, [u_baseline+u_modif])[0]
 
                 thp3 = thetas["P3"]
                 p3n_modif = w3.dot(thp3)
-                P3 = damsi_utils.gr2m_prod_P3_norm2raw(X1, [p3n_baseline+p3n_modif])[0]
+                P3 = daisi_utils.gr2m_prod_P3_norm2raw(X1, [p3n_baseline+p3n_modif])[0]
 
                 # .. bounds and mass balance
                 S = max(0., min(min(Sstart+P, X1), S))
@@ -413,28 +420,28 @@ def test_modif(allclose):
                 # Routing
                 # .. baseline variables
                 Rstart = R
-                R_baseline = damsi_utils.gr2m_R_fun(X2, Xr, [Rstart], [P3])
-                v_baseline = damsi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, R_baseline)[0]
+                R_baseline = daisi_utils.gr2m_R_fun(X2, Xr, [Rstart], [P3])
+                v_baseline = daisi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, R_baseline)[0]
 
-                Q_baseline = damsi_utils.gr2m_Q_fun(X2, Xr, [Rstart], [P3])
-                qn_baseline = damsi_utils.gr2m_rout_Q_raw2norm(X2, Xr, Q_baseline)[0]
+                Q_baseline = daisi_utils.gr2m_Q_fun(X2, Xr, [Rstart], [P3])
+                qn_baseline = daisi_utils.gr2m_rout_Q_raw2norm(X2, Xr, Q_baseline)[0]
 
                 # .. modified variables
                 z = np.array([\
-                        damsi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, [Rstart])[0], \
-                        damsi_utils.gr2m_rout_P3_raw2norm(X2, Xr, [P3])[0] \
+                        daisi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, [Rstart])[0], \
+                        daisi_utils.gr2m_rout_P3_raw2norm(X2, Xr, [P3])[0] \
                 ])
                 thr = thetas["R"]
                 w2[:6] = [1, z[0], z[1], \
                                 z[0]**2, z[1]**2, \
                                 z[0]*z[1]]
                 v_modif = w2.dot(thr)
-                R = damsi_utils.gr2m_rout_Rend_norm2raw(X2, Xr, \
+                R = daisi_utils.gr2m_rout_Rend_norm2raw(X2, Xr, \
                                             [v_baseline+v_modif])[0]
 
                 thq = thetas["Q"]
                 qn_modif = w2.dot(thq)
-                Q = damsi_utils.gr2m_rout_Q_norm2raw(X2, Xr, [qn_baseline+qn_modif])[0]
+                Q = daisi_utils.gr2m_rout_Q_norm2raw(X2, Xr, [qn_baseline+qn_modif])[0]
 
                 # .. bounds and mass balance
                 R = max(0., min(Xr, R))
@@ -496,7 +503,8 @@ def test_perturbation(allclose):
     tbar = tqdm(total=len(isites)*nparams, desc="comparing random")
     res = []
     for isite in isites:
-        _, inputs, _, _, _ = get_data(isite)
+        mthly = daisi_data.get_data(SITEIDS[isite])
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
         params = get_params(nparams, nmodel.params.defaults)
         nval = len(inputs)
         pert = np.random.normal(size=(nval, 6))*1.
@@ -557,17 +565,17 @@ def test_perturbation(allclose):
 
                 ### Production ###
                 # .. baseline variables
-                S_baseline = damsi_utils.gr2m_S_fun(X1, [Sini], [P], [E])
-                u_baseline = damsi_utils.gr2m_prod_S_raw2norm(X1, S_baseline)[0]
+                S_baseline = daisi_utils.gr2m_S_fun(X1, [Sini], [P], [E])
+                u_baseline = daisi_utils.gr2m_prod_S_raw2norm(X1, S_baseline)[0]
 
-                P3_baseline = damsi_utils.gr2m_P3_fun(X1, [Sini], [P], [E])
-                p3n_baseline = damsi_utils.gr2m_prod_P3_raw2norm(X1, P3_baseline)[0]
+                P3_baseline = daisi_utils.gr2m_P3_fun(X1, [Sini], [P], [E])
+                p3n_baseline = daisi_utils.gr2m_prod_P3_raw2norm(X1, P3_baseline)[0]
 
                 # .. modif
                 x = np.array([\
-                        damsi_utils.gr2m_prod_S_raw2norm(X1, [Sini])[0], \
-                        damsi_utils.gr2m_prod_P_raw2norm(X1, [P])[0], \
-                        damsi_utils.gr2m_prod_E_raw2norm(X1, [E])[0] \
+                        daisi_utils.gr2m_prod_S_raw2norm(X1, [Sini])[0], \
+                        daisi_utils.gr2m_prod_P_raw2norm(X1, [P])[0], \
+                        daisi_utils.gr2m_prod_E_raw2norm(X1, [E])[0] \
                 ])
                 w3[0] = 1.
                 w3[1] = x[0]
@@ -580,11 +588,11 @@ def test_perturbation(allclose):
                 w3[8] = x[0]*x[2]
                 w3[9] = x[1]*x[2]
                 u_modif = w3.dot(thetas["S"])
-                S = damsi_utils.gr2m_prod_S_norm2raw(X1, [u_baseline+u_modif])[0]
+                S = daisi_utils.gr2m_prod_S_norm2raw(X1, [u_baseline+u_modif])[0]
 
                 thp3 = thetas["P3"]
                 p3n_modif = w3.dot(thp3)
-                P3 = damsi_utils.gr2m_prod_P3_norm2raw(X1, [p3n_baseline+p3n_modif])[0]
+                P3 = daisi_utils.gr2m_prod_P3_norm2raw(X1, [p3n_baseline+p3n_modif])[0]
 
                 # Check and mass balance
                 S = max(0., min(min(Sini+P, X1), S))
@@ -602,17 +610,17 @@ def test_perturbation(allclose):
                 ### Routing ###
 
                 # .. baseline variables
-                R_baseline = damsi_utils.gr2m_R_fun(X2, Xr, [Rini], [P3])
-                v_baseline = damsi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, \
+                R_baseline = daisi_utils.gr2m_R_fun(X2, Xr, [Rini], [P3])
+                v_baseline = daisi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, \
                                                                 R_baseline)[0]
 
-                Q_baseline = damsi_utils.gr2m_Q_fun(X2, Xr, [Rini], [P3])
-                qn_baseline = damsi_utils.gr2m_rout_Q_raw2norm(X2, Xr, \
+                Q_baseline = daisi_utils.gr2m_Q_fun(X2, Xr, [Rini], [P3])
+                qn_baseline = daisi_utils.gr2m_rout_Q_raw2norm(X2, Xr, \
                                                                 Q_baseline)[0]
 
                 x = np.array([\
-                        damsi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, [Rini])[0], \
-                        damsi_utils.gr2m_rout_P3_raw2norm(X2, Xr, [P3])[0] \
+                        daisi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, [Rini])[0], \
+                        daisi_utils.gr2m_rout_P3_raw2norm(X2, Xr, [P3])[0] \
                 ])
                 w2[0] = 1.
                 w2[1] = x[0]
@@ -621,10 +629,10 @@ def test_perturbation(allclose):
                 w2[4] = x[1]**2
                 w2[5] = x[0]*x[1]
                 v_modif = w2.dot(thetas["R"])
-                R = damsi_utils.gr2m_rout_Rend_norm2raw(X2, Xr, \
+                R = daisi_utils.gr2m_rout_Rend_norm2raw(X2, Xr, \
                                                     [v_baseline+v_modif])[0]
                 qn_modif = w2.dot(thetas["Q"])
-                Q = damsi_utils.gr2m_rout_Q_norm2raw(X2, Xr,\
+                Q = daisi_utils.gr2m_rout_Q_norm2raw(X2, Xr,\
                                                     [qn_baseline+qn_modif])[0]
                 # .. bounds and mass balance
                 R = max(0., min(Xr, R))

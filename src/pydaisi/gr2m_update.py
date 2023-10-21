@@ -13,8 +13,9 @@ from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector
 from pygme.factory import model_factory
 
-from pydamsi import damsi_utils
-import c_pydamsi
+from pydaisi import daisi_utils
+import c_pydaisi
+
 
 def get_interp_params_names():
     nm3 = [f"{i:02d}" for i in range(10)]
@@ -120,17 +121,17 @@ class GR2MUPDATE(Model):
 
     @property
     def transP(self):
-        return damsi_utils.Transform(lam=self.lamP, nu=self.nu)
+        return daisi_utils.Transform(lam=self.lamP, nu=self.nu)
 
 
     @property
     def transQ(self):
-        return damsi_utils.Transform(lam=self.lamQ, nu=self.nu)
+        return daisi_utils.Transform(lam=self.lamQ, nu=self.nu)
 
 
     @property
     def transE(self):
-        return damsi_utils.Transform(lam=self.lamE, nu=self.nu)
+        return daisi_utils.Transform(lam=self.lamE, nu=self.nu)
 
 
     def initialise_fromdata(self):
@@ -149,7 +150,7 @@ class GR2MUPDATE(Model):
 
 
     def run(self):
-        ierr = c_pydamsi.gr2m_update_run(self.istart, self.iend,
+        ierr = c_pydaisi.gr2m_update_run(self.istart, self.iend,
             self.config.values, \
             self.params.values, \
             self.inputs, \
@@ -158,7 +159,7 @@ class GR2MUPDATE(Model):
 
         if ierr > 0:
             raise ValueError(f"Model {self.name},"+\
-                    f" c_pydamsi.gr2m_update_run returns {ierr}")
+                    f" c_pydaisi.gr2m_update_run returns {ierr}")
 
 
     def get_parent_simulation(self, sini=None, index=None):
@@ -180,7 +181,7 @@ class GR2MUPDATE(Model):
 
     def get_interp_params_indexes(self):
         """ Indexes within config vector """
-        i0 = c_pydamsi.get_modif_params_start()
+        i0 = c_pydaisi.get_modif_params_start()
         assert self.config.names[i0] == "S-00"
         kndS = np.arange(i0-6, i0-3) # Nodes S
         kndR = np.arange(i0-3, i0) # Nodes R
@@ -293,9 +294,9 @@ def get_interpolation_variables(sims, X1, X2, Xr):
     nval = len(sims)
 
     # Production var
-    u = damsi_utils.gr2m_prod_S_raw2norm(X1, sims.S.shift(1))
-    phi = damsi_utils.gr2m_prod_P_raw2norm(X1, sims.Rain)
-    psi = damsi_utils.gr2m_prod_E_raw2norm(X1, sims.PET)
+    u = daisi_utils.gr2m_prod_S_raw2norm(X1, sims.S.shift(1))
+    phi = daisi_utils.gr2m_prod_P_raw2norm(X1, sims.Rain)
+    psi = daisi_utils.gr2m_prod_E_raw2norm(X1, sims.PET)
 
     # Production polynomial
     XS = np.column_stack([u, phi, psi])
@@ -313,8 +314,8 @@ def get_interpolation_variables(sims, X1, X2, Xr):
     WS[:, 9] = val2*val3
 
     # Routing var
-    v = damsi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, sims.R.shift(1))
-    alpha = damsi_utils.gr2m_rout_P3_raw2norm(X2, Xr, sims.P3)
+    v = daisi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, sims.R.shift(1))
+    alpha = daisi_utils.gr2m_rout_P3_raw2norm(X2, Xr, sims.P3)
 
     # Routing polynomial
     XR = np.column_stack([v, alpha])
@@ -328,10 +329,10 @@ def get_interpolation_variables(sims, X1, X2, Xr):
     WR[:, 5] = val1*val2
 
     # Response variables
-    Yuend = damsi_utils.gr2m_prod_S_raw2norm(X1, sims.S)
-    Yp3n = damsi_utils.gr2m_prod_P3_raw2norm(X1, sims.P3)
-    Yvend = damsi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, sims.R)
-    Yqn = damsi_utils.gr2m_rout_Q_raw2norm(X2, Xr, sims.Q)
+    Yuend = daisi_utils.gr2m_prod_S_raw2norm(X1, sims.S)
+    Yp3n = daisi_utils.gr2m_prod_P3_raw2norm(X1, sims.P3)
+    Yvend = daisi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, sims.R)
+    Yqn = daisi_utils.gr2m_rout_Q_raw2norm(X2, Xr, sims.Q)
 
     interp_data = {\
         "data": {
@@ -341,13 +342,13 @@ def get_interpolation_variables(sims, X1, X2, Xr):
             "XR": XR, \
             "WR": WR, \
             "Yuend": Yuend, \
-            "Yuend_baseline": damsi_utils.gr2m_S_fun_normalised(X1, *XS.T), \
+            "Yuend_baseline": daisi_utils.gr2m_S_fun_normalised(X1, *XS.T), \
             "Yp3n": Yp3n, \
-            "Yp3n_baseline": damsi_utils.gr2m_P3_fun_normalised(X1, *XS.T), \
+            "Yp3n_baseline": daisi_utils.gr2m_P3_fun_normalised(X1, *XS.T), \
             "Yvend": Yvend, \
-            "Yvend_baseline": damsi_utils.gr2m_R_fun_normalised(X2, Xr, *XR.T), \
+            "Yvend_baseline": daisi_utils.gr2m_R_fun_normalised(X2, Xr, *XR.T), \
             "Yqn": Yqn, \
-            "Yqn_baseline": damsi_utils.gr2m_Q_fun_normalised(X2, Xr, *XR.T), \
+            "Yqn_baseline": daisi_utils.gr2m_Q_fun_normalised(X2, Xr, *XR.T), \
         }, \
         "info": {
             "state_names": ["S", "P3", "R", "Q"],\
@@ -431,7 +432,7 @@ def fit_interpolation(interp_data, \
         index_y = index[ical][iok]
 
         # .. initialise regression
-        breg = damsi_utils.BayesianRegression(X, y)
+        breg = daisi_utils.BayesianRegression(X, y)
         breg.solve()
 
         # Use posterior distribution mean

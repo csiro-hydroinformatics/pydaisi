@@ -6,7 +6,8 @@ import zipfile
 from hydrodiy.io import csv
 
 source_file = Path(__file__).resolve()
-FDATA = source_file.parent.parent / "data"
+# Path to data within pydaisi repository
+FDATA = source_file.parent.parent.parent / "data"
 
 class Period():
     def __init__(self, start, end):

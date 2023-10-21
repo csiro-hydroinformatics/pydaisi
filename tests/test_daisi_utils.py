@@ -21,12 +21,12 @@ from hydrodiy.stat import sutils
 from pygme.models.gr2m import GR2M
 
 import warnings
-from pydaisi import daisi_utils
+from pydaisi import daisi_utils, daisi_data
 import c_pydaisi
 
 FTESTS = Path(__file__).resolve().parent
 
-from test_gr2m_modif import get_params, get_data, NSITES
+from test_gr2m_update import get_params, NSITES, SITEIDS
 
 def test_boxcox(allclose):
     # Check continuity of transform
@@ -144,8 +144,9 @@ def test_gr2m_fun(allclose):
         n += len(x)
         minmax[name] = [x0, s, n, x1]
 
-    for i in range(NSITES):
-        _, inputs, _, _, _ = get_data(i)
+    for isite in range(NSITES):
+        mthly = daisi_data.get_data(SITEIDS[isite])
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
         gr2m.allocate(inputs, gr2m.noutputsmax)
 
         for p in params:
@@ -361,8 +362,9 @@ def test_model_elasticity(allclose):
     nparams = 5
     params = get_params(nparams, model.params.defaults)
 
-    for i in range(20):
-        _, inputs, _, _, _ = get_data(i)
+    for isite in range(NSITES):
+        mthly = daisi_data.get_data(SITEIDS[isite])
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
         model.allocate(inputs, model.noutputsmax)
         iactive = np.arange(len(inputs))>=24
 

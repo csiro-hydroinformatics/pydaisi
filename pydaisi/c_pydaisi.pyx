@@ -17,7 +17,7 @@ cdef extern from "c_gr2m_update.h":
             double * statesini,
             double * outputs)
 
-cdef extern from "c_damsi_utils.h":
+cdef extern from "c_daisi_utils.h":
     double c_boxcox_forward(double x, double lam, double nu)
     double c_boxcox_backward(double y, double lam, double nu)
     double c_boxcox_perturb(double x, double delta, double lam, double nu,

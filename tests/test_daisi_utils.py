@@ -21,8 +21,8 @@ from hydrodiy.stat import sutils
 from pygme.models.gr2m import GR2M
 
 import warnings
-from pydamsi import damsi_utils
-import c_pydamsi
+from pydaisi import daisi_utils
+import c_pydaisi
 
 FTESTS = Path(__file__).resolve().parent
 
@@ -32,11 +32,11 @@ def test_boxcox(allclose):
     # Check continuity of transform
     x, nu = 1, 0.1
     lams = np.linspace(-1, 1, 1000)
-    y = np.array([c_pydamsi.boxcox_forward(x, lam, nu) for lam in lams])
+    y = np.array([c_pydaisi.boxcox_forward(x, lam, nu) for lam in lams])
     assert (np.abs(np.diff(y))<3e-5).all()
 
     y = 0.1
-    x = np.array([c_pydamsi.boxcox_backward(y, lam, nu) for lam in lams])
+    x = np.array([c_pydaisi.boxcox_backward(y, lam, nu) for lam in lams])
     assert (np.abs(np.diff(x))<2e-5).all()
 
     # Test transforms
@@ -45,13 +45,13 @@ def test_boxcox(allclose):
     xm = x.reshape((100, 10))
     delta = np.random.uniform(-5, 5, n)
 
-    tx = c_pydamsi.boxcox_forward(1., 2., -2.)
+    tx = c_pydaisi.boxcox_forward(1., 2., -2.)
     assert np.isnan(tx)
 
     for lam in [-1., -0.5, -0.2, 0., 0.2, 0.5, 1.]:
         for nu in [0., 0.1, 10]:
             # Test transform object
-            trans = damsi_utils.Transform(lam, nu)
+            trans = daisi_utils.Transform(lam, nu)
             # .. vectors
             tx = trans.forward(x)
             if abs(lam)>0:
@@ -89,13 +89,13 @@ def test_boxcox(allclose):
             # Test underlying C functions
             for i in range(n):
                 xx = x[i]
-                tx = c_pydamsi.boxcox_forward(xx, lam, nu)
+                tx = c_pydaisi.boxcox_forward(xx, lam, nu)
                 if abs(lam)>0:
                     assert allclose(tx, ((xx+nu)**lam-1)/lam)
                 else:
                     assert allclose(tx, math.log(xx+nu))
 
-                xx2 = c_pydamsi.boxcox_backward(tx, lam, nu)
+                xx2 = c_pydaisi.boxcox_backward(tx, lam, nu)
                 assert allclose(xx2, xx)
 
                 if lam<1:
@@ -103,18 +103,18 @@ def test_boxcox(allclose):
                     # value = nan
                     dd = delta[i]
                     xclip = -nu
-                    assert np.isnan(c_pydamsi.boxcox_forward(xclip, lam, nu))
+                    assert np.isnan(c_pydaisi.boxcox_forward(xclip, lam, nu))
 
                     xclip = -nu+1e-4
-                    assert not np.isnan(c_pydamsi.boxcox_forward(xclip, lam, nu))
+                    assert not np.isnan(c_pydaisi.boxcox_forward(xclip, lam, nu))
 
                     # Test pert - clipping
                     xclip = -nu+1e-4
-                    y = c_pydamsi.boxcox_forward(xx, lam, nu)+dd
-                    yclip = c_pydamsi.boxcox_forward(xclip, lam, nu)
-                    xpert = c_pydamsi.boxcox_perturb(xx, dd, lam, nu, xclip)
+                    y = c_pydaisi.boxcox_forward(xx, lam, nu)+dd
+                    yclip = c_pydaisi.boxcox_forward(xclip, lam, nu)
+                    xpert = c_pydaisi.boxcox_perturb(xx, dd, lam, nu, xclip)
                     ymax = np.inf if lam>=0 else -1./lam-1e-2
-                    expected = c_pydamsi.boxcox_backward(\
+                    expected = c_pydaisi.boxcox_backward(\
                                     min(max(y, yclip), ymax), lam, nu)
                     assert allclose(xpert, expected)
 
@@ -163,80 +163,80 @@ def test_gr2m_fun(allclose):
             AE, F = df.AE, df.F
 
             # GR2M forward functions
-            Snext = damsi_utils.gr2m_S_fun(X1, S, P, E)
+            Snext = daisi_utils.gr2m_S_fun(X1, S, P, E)
             assert allclose(Snext[1:], df.S.iloc[1:])
 
-            AEhat = damsi_utils.gr2m_AE_fun(X1, S, P, E)
+            AEhat = daisi_utils.gr2m_AE_fun(X1, S, P, E)
             assert allclose(AEhat[1:], df.AE.iloc[1:])
 
-            P3hat = damsi_utils.gr2m_P3_fun(X1, S, P, E)
+            P3hat = daisi_utils.gr2m_P3_fun(X1, S, P, E)
             assert allclose(P3hat[1:], df.P3.iloc[1:])
 
-            Rnext = damsi_utils.gr2m_R_fun(X2, Xr, R, P3)
+            Rnext = daisi_utils.gr2m_R_fun(X2, Xr, R, P3)
             assert allclose(Rnext[1:], df.R.iloc[1:])
 
-            Qhat = damsi_utils.gr2m_Q_fun(X2, Xr, R, P3)
+            Qhat = daisi_utils.gr2m_Q_fun(X2, Xr, R, P3)
             assert allclose(Qhat[1:], df.Q.iloc[1:])
 
-            Fhat = damsi_utils.gr2m_F_fun(X2, Xr, R, P3)
+            Fhat = daisi_utils.gr2m_F_fun(X2, Xr, R, P3)
             assert allclose(Fhat[1:], df.F.iloc[1:])
 
             # GR2M state transforms
-            u = damsi_utils.gr2m_prod_S_raw2norm(X1, S[1:])
+            u = daisi_utils.gr2m_prod_S_raw2norm(X1, S[1:])
             assert np.all((u>=0) & (u<=1))
-            Sb = damsi_utils.gr2m_prod_S_norm2raw(X1, u)
+            Sb = daisi_utils.gr2m_prod_S_norm2raw(X1, u)
             assert allclose(S[1:], Sb)
 
-            aen = damsi_utils.gr2m_prod_AE_raw2norm(X1, AE)
+            aen = daisi_utils.gr2m_prod_AE_raw2norm(X1, AE)
             updateminmax("prod aen", aen)
-            AEb = damsi_utils.gr2m_prod_AE_norm2raw(X1, aen)
+            AEb = daisi_utils.gr2m_prod_AE_norm2raw(X1, aen)
             assert allclose(AEb, AE)
 
-            p3n = damsi_utils.gr2m_prod_P3_raw2norm(X1, P3)
+            p3n = daisi_utils.gr2m_prod_P3_raw2norm(X1, P3)
             updateminmax("prod p3n", p3n)
             #assert np.all((p3n>=0) & (p3n<=1))
-            P3b = damsi_utils.gr2m_prod_P3_norm2raw(X1, p3n)
+            P3b = daisi_utils.gr2m_prod_P3_norm2raw(X1, p3n)
             assert allclose(P3, P3b)
 
-            pn = damsi_utils.gr2m_prod_P_raw2norm(X1, P)
+            pn = daisi_utils.gr2m_prod_P_raw2norm(X1, P)
             updateminmax("prod p", pn)
             #assert np.all((pn>=0) & (pn<=1))
-            Pb = damsi_utils.gr2m_prod_P_norm2raw(X1, pn)
+            Pb = daisi_utils.gr2m_prod_P_norm2raw(X1, pn)
             assert allclose(P, Pb)
 
-            en = damsi_utils.gr2m_prod_E_raw2norm(X1, E)
+            en = daisi_utils.gr2m_prod_E_raw2norm(X1, E)
             updateminmax("prod e", en)
-            Eb = damsi_utils.gr2m_prod_E_norm2raw(X1, en)
+            Eb = daisi_utils.gr2m_prod_E_norm2raw(X1, en)
             assert allclose(E, Eb, atol=1e-3, rtol=1e-3)
 
-            p3n = damsi_utils.gr2m_rout_P3_raw2norm(X2, Xr, P3)
+            p3n = daisi_utils.gr2m_rout_P3_raw2norm(X2, Xr, P3)
             updateminmax("route p3n", p3n)
-            P3b = damsi_utils.gr2m_rout_P3_norm2raw(X2, Xr, p3n)
+            P3b = daisi_utils.gr2m_rout_P3_norm2raw(X2, Xr, p3n)
             assert allclose(P3, P3b)
 
-            v = damsi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, R[1:])
+            v = daisi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, R[1:])
             updateminmax("route rstart", v)
-            Rb = damsi_utils.gr2m_rout_Rstart_norm2raw(X2, Xr, v)
+            Rb = daisi_utils.gr2m_rout_Rstart_norm2raw(X2, Xr, v)
             assert allclose(R[1:], Rb)
 
-            v = damsi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, R[1:])
+            v = daisi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, R[1:])
             updateminmax("route rend", v)
             assert np.all((v>=0) & (v<=1))
-            Rb = damsi_utils.gr2m_rout_Rend_norm2raw(X2, Xr, v)
+            Rb = daisi_utils.gr2m_rout_Rend_norm2raw(X2, Xr, v)
             assert allclose(R[1:], Rb)
 
-            fn = damsi_utils.gr2m_rout_F_raw2norm(X2, Xr, F)
+            fn = daisi_utils.gr2m_rout_F_raw2norm(X2, Xr, F)
             updateminmax("route fn", fn)
-            Fb = damsi_utils.gr2m_rout_F_norm2raw(X2, Xr, fn)
+            Fb = daisi_utils.gr2m_rout_F_norm2raw(X2, Xr, fn)
             assert allclose(F, Fb)
 
-            qn = damsi_utils.gr2m_rout_Q_raw2norm(X2, Xr, Q)
+            qn = daisi_utils.gr2m_rout_Q_raw2norm(X2, Xr, Q)
             updateminmax("route qn", qn)
-            Qb = damsi_utils.gr2m_rout_Q_norm2raw(X2, Xr, qn)
+            Qb = daisi_utils.gr2m_rout_Q_norm2raw(X2, Xr, qn)
             assert allclose(Q, Qb)
 
             # GR2M forward functions in transform space
-            uend = damsi_utils.gr2m_S_fun_normalised(X1, u, pn[1:], en[1:])
+            uend = daisi_utils.gr2m_S_fun_normalised(X1, u, pn[1:], en[1:])
             assert allclose(uend[:-1], u[1:], atol=1e-7)
 
             # .. simple known relationship
@@ -246,25 +246,25 @@ def test_gr2m_fun(allclose):
             ysplus = ys2/np.power(1+ys2**3, 1./3)
             assert allclose(uend, ysplus, atol=1e-4)
 
-            p3n_calc = damsi_utils.gr2m_P3_fun_normalised(X1, u, \
+            p3n_calc = daisi_utils.gr2m_P3_fun_normalised(X1, u, \
                                     pn[1:], en[1:])
-            p3n = damsi_utils.gr2m_prod_P3_raw2norm(X1, P3)
+            p3n = daisi_utils.gr2m_prod_P3_raw2norm(X1, P3)
             assert allclose(p3n_calc, p3n[1:], atol=5e-4)
 
             yp3 = yp+ys-ys1+ys2-ysplus
             assert allclose(yp3, p3n_calc, atol=1e-4)
 
-            p3n = damsi_utils.gr2m_rout_P3_raw2norm(X2, Xr, P3)
-            v = damsi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, R[1:])
-            vend_calc = damsi_utils.gr2m_R_fun_normalised(X2, Xr, v, p3n[1:])
-            vend = damsi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, R[1:])
+            p3n = daisi_utils.gr2m_rout_P3_raw2norm(X2, Xr, P3)
+            v = daisi_utils.gr2m_rout_Rstart_raw2norm(X2, Xr, R[1:])
+            vend_calc = daisi_utils.gr2m_R_fun_normalised(X2, Xr, v, p3n[1:])
+            vend = daisi_utils.gr2m_rout_Rend_raw2norm(X2, Xr, R[1:])
             assert allclose(vend_calc[:-1], vend[1:])
 
             sx = v+p3n[1:]
             yrplus = sx/(1+sx)
             assert allclose(yrplus, vend_calc)
 
-            yq_calc = damsi_utils.gr2m_Q_fun_normalised(X2, Xr, v, p3n[1:])
+            yq_calc = daisi_utils.gr2m_Q_fun_normalised(X2, Xr, v, p3n[1:])
             yq = sx**2/(1+sx)
             assert allclose(yq, yq_calc)
 
@@ -302,7 +302,7 @@ def test_bayesianreg(allclose):
         has_inf_prior = jdata["has_inf_prior"]
 
         # Fit bayesian reg
-        breg = damsi_utils.BayesianRegression(X, y, rcond=0.)
+        breg = daisi_utils.BayesianRegression(X, y, rcond=0.)
         if has_inf_prior == 1:
             breg.add_prior(beta0, L0, sigsqref, N0)
 
@@ -376,7 +376,7 @@ def test_model_elasticity(allclose):
             outputs = model.outputs.copy()
 
             for relative in [True, False]:
-                elast, sims = damsi_utils.model_elasticity(model, iactive, \
+                elast, sims = daisi_utils.model_elasticity(model, iactive, \
                                                             relative)
                 assert len(elast) == 2
                 assert len(elast["rain"]) == 9
@@ -395,10 +395,10 @@ def test_model_elasticity(allclose):
 
 
 def test_smooth():
-    if not damsi_utils.HAS_STATSMODELS:
+    if not daisi_utils.HAS_STATSMODELS:
         pytest.skip("Cannot import statsmodels")
 
     x = np.linspace(0, 1, 50)
     y = x**2+np.random.uniform(-0.5, 0.5, size=len(x))
-    xx, yy = damsi_utils.smooth(x, y)
+    xx, yy = daisi_utils.smooth(x, y)
 

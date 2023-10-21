@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-""" Setup script for pynonstat"""
 
 import os
 from pathlib import Path
@@ -23,11 +22,11 @@ pygme_include_dir = Path(pygme.__file__).parent / "models"
 
 ext_modules = [
     Extension(
-        name="c_pydamsi",
+        name="c_pydaisi",
         sources=[
-            "pydamsi/c_pydamsi.pyx",
-            "pydamsi/c_gr2m_update.c",\
-            "pydamsi/c_damsi_utils.c",\
+            "pydaisi/c_pydaisi.pyx",
+            "pydaisi/c_gr2m_update.c",\
+            "pydaisi/c_daisi_utils.c",\
             str(pygme_include_dir / "c_utils.c"),
         ],
         include_dirs=[\
@@ -37,7 +36,7 @@ ext_modules = [
 ]
 
 setup(
-    name="pydamsi",
+    name="pydaisi",
     version=versioneer.get_version(),
     cmdclass=cmdclass,
     packages=find_packages(),

@@ -12,7 +12,7 @@
 #define C_PI 3.1415926535897932384626433832795
 
 /* Define Error message */
-#define DAMSI_ERROR 80000
+#define DAISI_ERROR 80000
 #define GR2M_UPDATE_ERROR 90000
 
 /* Maximum for the argument of atanh function (i.e. atanh(x)<18) */

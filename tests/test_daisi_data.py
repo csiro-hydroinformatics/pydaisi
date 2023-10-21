@@ -7,7 +7,7 @@ from timeit import Timer
 import time
 
 import numpy as np
-from pydamsi import damsi_data
+from pydaisi import daisi_data
 
 import warnings
 
@@ -16,17 +16,17 @@ FTEST = source_file.parent
 
 
 def test_get_sites():
-    sites = damsi_data.get_sites()
+    sites = daisi_data.get_sites()
     assert sites.shape == (201, 28)
 
 
 def test_get_data():
-    df = damsi_data.get_data("410734")
+    df = daisi_data.get_data("410734")
     assert df.shape == (588, 3)
 
 
 def test_periods():
-    periods = damsi_data.Periods()
+    periods = daisi_data.Periods()
 
     for per in ["per1", "per2", "per3"]:
         assert per in periods.periods

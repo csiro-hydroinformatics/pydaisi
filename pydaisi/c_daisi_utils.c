@@ -1,4 +1,4 @@
-#include "c_damsi_utils.h"
+#include "c_daisi_utils.h"
 
 /* See
  * https://stackoverflow.com/questions/101439/the-most-efficient-way-to-implement-an-integer-based-power-function-powint-int

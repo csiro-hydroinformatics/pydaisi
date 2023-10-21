@@ -19,7 +19,7 @@ except ImportError:
 
 from hydrodiy.stat import sutils
 
-import c_pynonstat
+import c_pydaisi
 
 def get_varname(varname):
     if varname == "S":
@@ -89,102 +89,102 @@ def to1d(x):
 
 def gr2m_prod_S_raw2norm(X1, S):
     S, out = to1d(S)
-    c_pynonstat.vect_gr2m_prod_S_raw2norm(X1, S, out)
+    c_pydaisi.vect_gr2m_prod_S_raw2norm(X1, S, out)
     return out
 
 def gr2m_prod_S_norm2raw(X1, u):
     u, out = to1d(u)
-    c_pynonstat.vect_gr2m_prod_S_norm2raw(X1, u, out)
+    c_pydaisi.vect_gr2m_prod_S_norm2raw(X1, u, out)
     return out
 
 def gr2m_prod_P_raw2norm(X1, P):
     P, out = to1d(P)
-    c_pynonstat.vect_gr2m_prod_P_raw2norm(X1, P, out)
+    c_pydaisi.vect_gr2m_prod_P_raw2norm(X1, P, out)
     return out
 
 def gr2m_prod_P_norm2raw(X1, pn):
     pn, out = to1d(pn)
-    c_pynonstat.vect_gr2m_prod_P_norm2raw(X1, pn, out)
+    c_pydaisi.vect_gr2m_prod_P_norm2raw(X1, pn, out)
     return out
 
 def gr2m_prod_E_raw2norm(X1, E):
     E, out = to1d(E)
-    c_pynonstat.vect_gr2m_prod_E_raw2norm(X1, E, out)
+    c_pydaisi.vect_gr2m_prod_E_raw2norm(X1, E, out)
     return out
 
 def gr2m_prod_E_norm2raw(X1, en):
     en, out = to1d(en)
-    c_pynonstat.vect_gr2m_prod_E_norm2raw(X1, en, out)
+    c_pydaisi.vect_gr2m_prod_E_norm2raw(X1, en, out)
     return out
 
 def gr2m_prod_AE_raw2norm(X1, AE):
     AE, out = to1d(AE)
-    c_pynonstat.vect_gr2m_prod_AE_raw2norm(X1, AE, out)
+    c_pydaisi.vect_gr2m_prod_AE_raw2norm(X1, AE, out)
     return out
 
 def gr2m_prod_AE_norm2raw(X1, aen):
     aen, out = to1d(aen)
-    c_pynonstat.vect_gr2m_prod_AE_norm2raw(X1, aen, out)
+    c_pydaisi.vect_gr2m_prod_AE_norm2raw(X1, aen, out)
     return out
 
 def gr2m_prod_P3_raw2norm(X1, P3):
     P3, out = to1d(P3)
-    c_pynonstat.vect_gr2m_prod_P3_raw2norm(X1, P3, out)
+    c_pydaisi.vect_gr2m_prod_P3_raw2norm(X1, P3, out)
     return out
 
 def gr2m_prod_P3_norm2raw(X1, p3n):
     p3n, out = to1d(p3n)
-    c_pynonstat.vect_gr2m_prod_P3_norm2raw(X1, p3n, out)
+    c_pydaisi.vect_gr2m_prod_P3_norm2raw(X1, p3n, out)
     return out
 
 def gr2m_rout_P3_raw2norm(X2, Xr, P3):
     P3, out = to1d(P3)
-    c_pynonstat.vect_gr2m_rout_P3_raw2norm(X2, Xr, P3, out)
+    c_pydaisi.vect_gr2m_rout_P3_raw2norm(X2, Xr, P3, out)
     return out
 
 def gr2m_rout_P3_norm2raw(X2, Xr, p3n):
     p3n, out = to1d(p3n)
-    c_pynonstat.vect_gr2m_rout_P3_norm2raw(X2, Xr, p3n, out)
+    c_pydaisi.vect_gr2m_rout_P3_norm2raw(X2, Xr, p3n, out)
     return out
 
 def gr2m_rout_Rstart_raw2norm(X2, Xr, R):
     R, out = to1d(R)
-    c_pynonstat.vect_gr2m_rout_Rstart_raw2norm(X2, Xr, R, out)
+    c_pydaisi.vect_gr2m_rout_Rstart_raw2norm(X2, Xr, R, out)
     return out
 
 def gr2m_rout_Rstart_norm2raw(X2, Xr, v):
     v, out = to1d(v)
-    c_pynonstat.vect_gr2m_rout_Rstart_norm2raw(X2, Xr, v, out)
+    c_pydaisi.vect_gr2m_rout_Rstart_norm2raw(X2, Xr, v, out)
     return out
 
 def gr2m_rout_Rend_raw2norm(X2, Xr, R):
     R, out = to1d(R)
-    c_pynonstat.vect_gr2m_rout_Rend_raw2norm(X2, Xr, R, out)
+    c_pydaisi.vect_gr2m_rout_Rend_raw2norm(X2, Xr, R, out)
     return out
 
 def gr2m_rout_Rend_norm2raw(X2, Xr, v):
     v, out = to1d(v)
-    c_pynonstat.vect_gr2m_rout_Rend_norm2raw(X2, Xr, v, out)
+    c_pydaisi.vect_gr2m_rout_Rend_norm2raw(X2, Xr, v, out)
     return out
 
 def gr2m_rout_F_raw2norm(X2, Xr, F):
     F, out = to1d(F)
-    c_pynonstat.vect_gr2m_rout_F_raw2norm(X2, Xr, F, out)
+    c_pydaisi.vect_gr2m_rout_F_raw2norm(X2, Xr, F, out)
     return out
 
 def gr2m_rout_F_norm2raw(X2, Xr, fn):
     fn, out = to1d(fn)
-    c_pynonstat.vect_gr2m_rout_F_norm2raw(X2, Xr, fn, out)
+    c_pydaisi.vect_gr2m_rout_F_norm2raw(X2, Xr, fn, out)
     return out
 
 def gr2m_rout_Q_raw2norm(X2, Xr, Q):
     Q, out = to1d(Q)
-    c_pynonstat.vect_gr2m_rout_Q_raw2norm(X2, Xr, Q, out)
+    c_pydaisi.vect_gr2m_rout_Q_raw2norm(X2, Xr, Q, out)
     return out
 
 def gr2m_rout_Q_norm2raw(X2, Xr, qn):
     qn, out = to1d(qn)
-    c_pynonstat.vect_gr2m_rout_Q_norm2raw(X2, Xr, qn, out)
+    c_pydaisi.vect_gr2m_rout_Q_norm2raw(X2, Xr, qn, out)
     return out
 
 
@@ -195,7 +195,7 @@ def gr2m_S_fun(X1, S, P, E):
     assert P.ndim == 1
     assert E.ndim == 1
     out = np.zeros_like(S)
-    c_pynonstat.vect_gr2m_S_fun(X1, S, P, E, out)
+    c_pydaisi.vect_gr2m_S_fun(X1, S, P, E, out)
     return out
 
 def gr2m_S_fun_normalised(X1, u, phi, psi):
@@ -213,7 +213,7 @@ def gr2m_P3_fun(X1, S, P, E):
     assert P.ndim == 1
     assert E.ndim == 1
     out = np.zeros_like(S)
-    c_pynonstat.vect_gr2m_P3_fun(X1, S, P, E, out)
+    c_pydaisi.vect_gr2m_P3_fun(X1, S, P, E, out)
     return out
 
 def gr2m_P3_fun_normalised(X1, u, phi, psi):
@@ -243,7 +243,7 @@ def gr2m_R_fun(X2, Xr, R, P3):
     assert R.ndim == 1
     assert P3.ndim == 1
     out = np.zeros_like(R)
-    c_pynonstat.vect_gr2m_R_fun(X2, Xr, R, P3, out)
+    c_pydaisi.vect_gr2m_R_fun(X2, Xr, R, P3, out)
     return out
 
 def gr2m_R_fun_normalised(X2, Xr, v, p3n):
@@ -260,7 +260,7 @@ def gr2m_Q_fun(X2, Xr, R, P3):
     assert P3.ndim == 1
     assert R.ndim == 1
     out = np.zeros_like(R)
-    c_pynonstat.vect_gr2m_Q_fun(X2, Xr, R, P3, out)
+    c_pydaisi.vect_gr2m_Q_fun(X2, Xr, R, P3, out)
     return out
 
 def gr2m_Q_fun_normalised(X2, Xr, v, p3n):
@@ -349,7 +349,7 @@ class Transform():
         if self.check_input_arrays:
             x = toarray(x)
         y = np.zeros_like(x, dtype=np.float64)
-        c_pynonstat.boxcox_forward_vect(lam, nu, x, y)
+        c_pydaisi.boxcox_forward_vect(lam, nu, x, y)
         return y.squeeze()
 
     def backward(self, y):
@@ -357,7 +357,7 @@ class Transform():
         if self.check_input_arrays:
             y = toarray(y)
         x = np.zeros_like(y, dtype=np.float64)
-        c_pynonstat.boxcox_backward_vect(lam, nu, y, x)
+        c_pydaisi.boxcox_backward_vect(lam, nu, y, x)
         return x.squeeze()
 
     def perturb(self, x, eps):
@@ -367,7 +367,7 @@ class Transform():
             eps = toarray(eps)
         y = np.zeros_like(eps, dtype=np.float64)
 
-        c_pynonstat.boxcox_perturb_vect(lam, nu, self.xclip, x, eps, y)
+        c_pydaisi.boxcox_perturb_vect(lam, nu, self.xclip, x, eps, y)
         return y.squeeze()
 
 

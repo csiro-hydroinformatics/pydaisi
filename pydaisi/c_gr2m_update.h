@@ -7,7 +7,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "c_damsi_utils.h"
+#include "c_daisi_utils.h"
 
 /* Number of config required by update run
     update coefs:

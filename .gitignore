@@ -12,8 +12,8 @@
 .gitattributes
 coverage.xml
 build
-pydamsi.egg-info
+pydaisi.egg-info
 nosetests.xml
 junit
 outputs/
-pydamsi/c_pydamsi.c
+pydaisi/c_pydaisi.c

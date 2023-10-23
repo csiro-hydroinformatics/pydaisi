@@ -201,7 +201,8 @@ def test_analysis(allclose):
 
     for isite in range(NSITES):
         mthly = daisi_data.get_data(SITEIDS[isite])
-        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(\
+                                                        mthly, "per1")
         inputs = inputs[-nvalmax:]
         mthly = mthly.iloc[-nvalmax:]
 
@@ -228,41 +229,18 @@ def test_analysis(allclose):
         X2err = X2*np.random.uniform(-0.1, 0.1)
         model.params.values = [X1+X1err, X2+X2err, Xr]
 
-        # Loop over smoother options
-        # .. assim_states = 2 (both states assimilated)
-        # .. perturb_states = 3 (both stores)
-        # .. perturb_inputs = 3 (both rain and PET)
-        # .. assim_params = 0 (no param assim)
-        for ensmoother, assim_states, perturb_states, \
-                perturb_inputs, assim_params \
-                    in prod([1], [2], [3], [3], [0]):
+        # Initialise enks
+        enks = gr2m_enks.EnKS(model, obscal, \
+                    stdfacts, rhofacts, covarfact, \
+                    debug)
 
-            if perturb_inputs+perturb_states == 0:
-                continue
-            if assim_params==1 and ensmoother==0:
-                continue
+        enks.initialise()
+        enks.plot_dir = fimg
+        enks.obs = obs
 
-            # Initialise enks
-            enks = gr2m_enks.EnKS(model, obscal, \
-                        stdfacts, rhofacts, covarfact, \
-                        locdur, \
-                        ensmoother, \
-                        perturb_inputs, \
-                        perturb_states, \
-                        assim_states, \
-                        assim_params, \
-                        clip, debug)
-
-            enks.initialise()
-            enks.plot_dir = fimg
-            enks.obs = obs
-
-            # Run smoother
-            lab = f"site{isite}_"+\
-                        f"ES{ensmoother}_"+\
-                        f"PI{perturb_inputs}_PS{perturb_states}_"+\
-                        f"AS{assim_states}_AP{assim_params}"
-            enks.run(context=lab, message=lab)
-            Xa = enks.Xa
+        # Run smoother
+        lab = f"site{isite}"
+        enks.run(context=lab, message=lab)
+        Xa = enks.Xa
 
 

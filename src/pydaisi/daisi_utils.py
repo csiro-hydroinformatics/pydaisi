@@ -21,64 +21,6 @@ from hydrodiy.stat import sutils
 
 import c_pydaisi
 
-def get_varname(varname):
-    if varname == "S":
-        return r"$s^+$"
-    elif varname == "P3":
-        return r"$p_e$"
-    elif varname == "R":
-        return r"$r^+$"
-    elif varname == "Q":
-        return r"$q$"
-    elif varname == "P":
-        return "Rain"
-    elif varname == "E":
-        return "PET"
-    else:
-        mess = f"Cannot find {state}"
-        raise ValueError(mess)
-
-def get_metricname(metric, long=False):
-    n = re.sub("^.*_|-.*$", "", metric)
-    if n == "ABSFDCFIT100":
-        nm = r"$F_B$"
-        lnm = f"Flow duration curve bias ({nm})"
-
-    elif n == "ELASTrelRAIN":
-        nm = r"$\epsilon_P$"
-        lnm = f"Elasticity to rainfall ({nm})"
-
-    elif n == "ELASTrelEVAP":
-        nm = r"$\epsilon_E$"
-        lnm = f"Elasticity to PET ({nm})"
-
-    elif n == "NSELOG":
-        nm = r"$NSE_{log}$"
-        lnm = f"NSE on log flows ({nm})"
-
-    elif n == "NSERECIP":
-        nm = r"$NSE_{rec}$"
-        lnm = f"NSE on reciprocal flows ({nm})"
-
-    elif n == "SPLITKGE":
-        nm = r"$KGE_{split}$"
-        lnm = f"Split KGE ({nm})"
-
-    elif n.startswith("PMR"):
-        ny = int(re.sub("PMR|Y", "", n))
-        nm = r"$PMR_{{{ny}}}$".format(ny=ny)
-        lnm = f"PMR {ny} years ({nm})"
-
-    elif n == "ABSBIAS":
-        nm = r"$1-|B|$"
-        lnm = f"Absolute bias index ({nm})"
-    else:
-        nm = f"${n}$"
-        lnm = nm
-
-    return lnm if long else nm
-
-
 # --- Reference GR2M functions ---
 # .. normalisation
 def to1d(x):

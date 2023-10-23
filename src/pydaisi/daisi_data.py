@@ -22,6 +22,7 @@ class Period():
 
 
 class Periods():
+    """ Calibration and validation periods """
     def __init__(self, data_start=1975, data_end=2019, \
                             warmup_years=5, wateryear_start=7):
         self.warmup_years = warmup_years
@@ -29,16 +30,14 @@ class Periods():
         self.data_start = data_start
         self.data_end = data_end
         self.periods = {}
-
         self.set_periods()
-
 
     @property
     def names(self):
         return list(self.periods.keys())
 
 
-    def add_period(self, pername, start_active, end_active):
+    def _add_period(self, pername, start_active, end_active):
         start_active = pd.to_datetime(start_active)
         end_active = pd.to_datetime(end_active)
         start_total = start_active-pd.DateOffset(months=self.warmup_years*12)
@@ -57,15 +56,15 @@ class Periods():
         s1 = pd.to_datetime(f"{years[0]}-{ys:02d}-01")\
                     +pd.DateOffset(years=nwarm)-pd.DateOffset(months=1)
         e1 = s1+pd.DateOffset(years=nper)
-        self.add_period("per1", s1, e1)
+        self._add_period("per1", s1, e1)
 
         s2 = s1+pd.DateOffset(years=nper, months=1)
         e2 = s2+pd.DateOffset(years=nper)
-        self.add_period("per2", s2, e2)
+        self._add_period("per2", s2, e2)
 
         s3 = s1
         e3 = e2
-        self.add_period("per3", s3, e3)
+        self._add_period("per3", s3, e3)
 
 
     def get_periodset(self, pername):

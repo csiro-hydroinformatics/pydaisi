@@ -185,87 +185,18 @@ class EnKS():
     def __init__(self, model, \
                     obscal, \
                     stdfacts, rhofacts, variabcorrfact, \
-                    locdur, \
-                    ensmoother, \
-                    perturb_inputs_code, \
-                    perturb_variables_code, \
-                    assim_states_code, \
-                    assim_params_code, \
-                    clip, debug, nens=200):
-
-        # Analysed variables clipping
-        assert clip in [0, 1]
-
-        # Run EnS and not EnKS
-        assert ensmoother in [0, 1]
-        self.ensmoother = ensmoother
+                    debug, nens=200):
         # Dims
         self.nens = nens
 
-        # Perturb inputs:
-        # 0 No input perturbations
-        # 1 Rainfall only
-        # 2 PET only
-        # 3 Rainfall and PET
-        assert perturb_inputs_code in [0, 1, 2, 3]
-
-        # Perturb states:
-        # 0 No states perturbations
-        # 1 Production states only
-        # 2 Routing states only
-        # 3 Both production and routing
-        assert perturb_variables_code in [0, 1, 2, 3]
-
-        # We need to perturb something within the model!
-        assert perturb_inputs_code+perturb_variables_code>0
-
         # List of perturbed states
-        perturb_variables = []
-        if perturb_inputs_code in [1, 3]:
-            perturb_variables.append("P")
-
-        if perturb_inputs_code in [2, 3]:
-            perturb_variables.append("E")
-
-        if perturb_variables_code in [1, 3]:
-            perturb_variables.extend(["S", "P3"])
-
-        if perturb_variables_code in [2, 3]:
-            perturb_variables.append("R")
-
-        # Always perturb outputs otherwise filter becomes unstable
-        perturb_variables.append("Q")
-
-        self.perturb_variables = perturb_variables
+        self.perturb_variables = ["P", "E", "P3", "S", "R", "Q"]
 
         # Assimilated states
         # X0  assimilate production states
         # X1  assimilate routing states
         # X2  assimilate both
-        assert assim_states_code in [0, 1, 2, 10, 11, 12]
-        assim_states = []
-        if assim_states_code%10 in [0, 2]:
-            assim_states.extend(["S", "P3"])
-
-        if assim_states_code%10 in [1, 2]:
-            assim_states.append("R")
-
-        # <10 -> do not assimilate inputs
-        # >=10 -> assimilate inputs
-        if assim_states_code//10 == 1:
-            assim_states.extend(["P", "E"])
-
-        # Assimilate parameters
-        assert assim_params_code in [0, 1]
-        # .. cannot assimilate parameters when using EnKS
-        # .. (need time varying parameters)
-        assert not ((assim_params_code==1) and (ensmoother==0))
-
-        self.assim_params = assim_params_code
-        if assim_params_code == 1:
-            self.nparams = model.params.values.shape[0]
-        else:
-            self.nparams = 0
+        assim_states = ["S", "P3", "R", "Q"]
 
         # GR2M params
         self.X1 = model.X1
@@ -273,7 +204,7 @@ class EnKS():
         self.X2 = model.X2
 
         # Transforms
-        xclip = 1e-3 if clip==1 else -model.nu+2e-4
+        xclip = -model.nu+2e-4
         self.transP = Transform(model.lamP, model.nu, xclip)
         self.transQ = Transform(model.lamQ, model.nu, xclip)
         self.transE = Transform(model.lamE, model.nu, xclip)
@@ -296,7 +227,8 @@ class EnKS():
                     "variables to be in the list of model outputs"
 
         # Add obs variables to assimilated states
-        self.assim_states = list(set(assim_states + self.obs_variables))
+        to_be_added = list(set(self.obs_variables)-set(assim_states))
+        self.assim_states = assim_states + to_be_added
 
         # inputs
         time = obscal.index
@@ -327,10 +259,6 @@ class EnKS():
         self.stdfacts = stdfacts
         self.rhofacts = rhofacts
         self.variabcorrfact = float(variabcorrfact)
-        self.locdur = 1000 if ensmoother==1 else int(locdur)
-
-        # Assimilated variable clipping
-        self.clip = clip == 1
 
         # Debug config
         self.debug = debug == 1
@@ -339,6 +267,7 @@ class EnKS():
         self.plot_ax_size = (20, 4)
         self.plot_separate_figs = False
         self.plot_period = None
+
 
     @property
     def nstates_perturb(self):
@@ -358,6 +287,7 @@ class EnKS():
         assert len(val)==len(self.obscal), \
                     "expected len(obs)==len(obscal)."
         self._obs = val
+
 
     def initialise(self):
         nens = self.nens
@@ -428,10 +358,8 @@ class EnKS():
 
         # Find times with obs data for preceeding time step
         self.ifilter = np.where(self.obscal.notnull().all(axis=1).values)[0]+1
-
         # .. only the last time step if Ens Smoother.
-        if self.ensmoother==1:
-            self.ifilter = [self.ifilter[-1]]
+        self.ifilter = [self.ifilter[-1]]
 
         # Randomise obs independentaly from model errors
         varnames = [f"{n}_obs" for n in self.obs_variables]
@@ -467,12 +395,7 @@ class EnKS():
         # For S and R, these are store values at the beginning of
         # the time step after perturbation (i.e. not the same as Sini and Rini)
         # This does not apply to P, P3 and Q.
-        Xa = np.nan*np.zeros((nval*self.nstates_assim, nens))
-        if self.assim_params == 1:
-            # if we assimilate parameters, add prior for parameters (i.e. Xf)
-            Xa = np.row_stack([self.logparams, Xa])
-
-        self.Xa = Xa
+        self.Xa = np.nan*np.zeros((nval*self.nstates_assim, nens))
 
         # Set initial conditions
         model.initialise_fromdata()
@@ -525,13 +448,10 @@ class EnKS():
             # Set perturbations
             epert = self.Xperturb[nstp*tstart:nstp*tend, iens]
             epert = epert.reshape((nsim, nstp))
-            idx = [model.inputs_names.index(f"{'' if n in ['S', 'R'] else 't'}{n}delta") \
+            idx = [model.inputs_names.index(\
+                            f"{'' if n in ['S', 'R'] else 't'}{n}delta") \
                                 for n in perturb_variables]
             model.inputs[tstart:tend, idx] = epert
-
-            # Set parameters
-            if self.assim_params == 1:
-                model.params.values = np.exp(self.logparams[:, iens])
 
             # Initialise model
             xini = [self.Sini[iens], self.Rini[iens]]
@@ -631,7 +551,7 @@ class EnKS():
         nstates = self.nstates_assim
         nobs = len(self.obs_variables)
         nens = self.nens
-        nparams = self.nparams
+        nparams = 0 # No assimilation of parameters
 
         # Ensemble stats
         EXf = np.mean(Xf[:nparams+nstates*tend], axis=1)
@@ -656,73 +576,15 @@ class EnKS():
         V = solve(P[iok][:, iok], W[iok], assume_a="pos")
         update = CH[:, iok].dot(V)
 
-        # reduction of spurious time correlation
-        A = (np.arange(tend)<self.locdur).astype(float)[::-1]
-        A = np.row_stack([np.ones(nparams)[:, None], \
-                        np.repeat(A[:, None], nstates, 0)])
-        update *= A
-
         # .. Apply EnKS update
         xtmp = Xf+update
-
-        if self.clip == 1:
-            # .. clip variables outside feasible domain
-            # .... P < Pmax
-            states_names = self.assim_states
-            if "P" in states_names:
-                iP = states_names.index("P")
-                tP = np.minimum(xtmp[nparams+iP::nstates, :], self.tP_max[:tend])
-                xtmp[nparams+iP::nstates, :] = tP
-
-            # ... E>=0
-            if "E" in states_names:
-                iE = states_names.index("E")
-                tE = np.maximum(xtmp[nparams+iE::nstates, :], self.tE_min)
-                xtmp[nparams+iE::nstates, :] = tE
-
-            # ... AE>=0
-            if "AE" in states_names:
-                iAE = states_names.index("AE")
-                tAE = np.maximum(xtmp[nparams+iAE::nstates, :], self.tE_min)
-                xtmp[nparams+iAE::nstates, :] = tAE
-
-            # .... S in [0, X1]
-            if "S" in states_names:
-                iS = states_names.index("S")
-                if self.assim_params == 1:
-                    iX1 = 0
-                    X1s = np.repeat(np.exp(xtmp[iX1, :])[None, :], tend, axis=0)
-                else:
-                    X1s = self.X1
-                xtmp[nparams+iS::nstates, :] = \
-                                np.clip(xtmp[nparams+iS::nstates, :], 0, X1s)
-            # .... P3 < P
-            if "P3" in states_names:
-                iP3 = states_names.index("P3")
-                tP3 = np.minimum(xtmp[nparams+iP3::nstates, :], self.tP_max[:tend])
-                xtmp[nparams+iP3::nstates, :] = tP3
-            # .... R in [0, Xr]
-            if "R" in states_names:
-                iR = states_names.index("R")
-                xtmp[nparams+iR::nstates, :] = \
-                                np.clip(xtmp[nparams+iR::nstates, :], 0, self.Xr)
-
-            # Don't do that otherwise the variance becomes close to 0.
-            # and it messes up analysis
-            #if "Q" in states_names:
-            #    iQ = states_names.index("Q")
-            #    xtmp[nparams+iQ::nstates, :] = \
-            #                    np.maximum(xtmp[nparams+iQ::nstates, :], self.tQ_min)
-
-        # .. update Xa BY REF !!!!
         self.Xa[:nparams+nstates*tend, :] = xtmp
 
 
     def run(self, context="EnKS_run", message="Running Enks"):
         tstart = 0
         nstates = self.nstates_assim
-        nparams = self.nparams
-        assim_params = self.assim_params
+        nparams = 0 # No assimilation of parameters
         idx = self.ifilter
         tbar = tqdm(enumerate(idx), desc=message, total=len(idx), \
                         disable=not self.debug)
@@ -767,7 +629,7 @@ class EnKS():
     def plot(self, fname):
         # Get data
         nstates = self.nstates_assim
-        nparams = self.nparams
+        nparams = 0
         transP, transE, transQ = self.transP, self.transE, self.transQ
         sims0, rain, evap, obs, obscal = self.sims0, self.rain, \
                                 self.evap, self.obs, self.obscal
@@ -775,31 +637,6 @@ class EnKS():
         time = obscal.index
 
         awidth, aheight  = self.plot_ax_size
-
-        # Plot params if assimilating params
-        if nparams>0:
-            plt.close("all")
-            prior = np.exp(self.logparams)
-            post = np.exp(Xa[:nparams, :])
-
-            figsize = (awidth/2, aheight*nparams)
-            fig = plt.figure(figsize=figsize, layout="constrained")
-            pnames = self.model.params.names.tolist()
-            mosaic = [[pn] for pn in pnames]
-            axs = fig.subplot_mosaic(mosaic)
-            for aname, ax in axs.items():
-                ip = pnames.index(aname)
-                ax.hist(prior[ip, :], bins=30, color="grey", alpha=0.3, \
-                                    label="GR2M prior")
-                ax.hist(post[ip, :], bins=30, color="tab:orange", alpha=0.3, \
-                                    label="DA")
-                ax.legend(loc=2)
-                ax.text(0.98, 0.98, aname, fontweight="bold", \
-                            transform=ax.transAxes, \
-                            ha="right", va="top")
-
-            fp = fname.parent / f"params_{fname.stem}.png"
-            fig.savefig(fp)
 
         plot_period = self.plot_period
         if not plot_period is None:
@@ -881,12 +718,12 @@ class EnKS():
                                             color="green", \
                                             lw=1, label="sim")
 
-                obs.loc[tsel, "Q"].plot(ax=ax, color="tab:red", alpha=0.9, \
+                obs.loc[tsel, "Q"].plot(ax=ax, color="k", linestyle="--", alpha=0.9, \
                                             lw=2, label="Q Obs")
 
-                obscal.loc[tsel, "Q"].plot(ax=ax, marker="+", markersize=8,\
+                obscal.loc[tsel, "Q"].plot(ax=ax, marker="o", markersize=8,\
                                 label="Q Obs Cal", \
-                                color="none", markeredgecolor="tab:red")
+                                color="k")
 
                 y1 = obs.loc[tsel, "Q"].max()*2
                 ax.set_ylim((0, y1))

@@ -146,7 +146,8 @@ def test_gr2m_fun(allclose):
 
     for isite in range(NSITES):
         mthly = daisi_data.get_data(SITEIDS[isite])
-        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(\
+                                                            mthly, "per1")
         gr2m.allocate(inputs, gr2m.noutputsmax)
 
         for p in params:

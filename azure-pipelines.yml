@@ -77,7 +77,7 @@ steps:
     source activate $(CONDA_ENV_NAME)
     cd $(BUILD_DIR)/pygme
     python setup.py develop
-  displayName: package_install
+  displayName: pygme_install
 
 - script: |
     source activate $(CONDA_ENV_NAME)
@@ -88,9 +88,17 @@ steps:
 - script: |
     source activate $(CONDA_ENV_NAME)
     cd $(BUILD_DIR)/pydaisi
-    pytest --junitxml=junit/test-results.xml --cov=pydaisi --cov-config=.coveragerc --cov-report=xml tests
+    pytest --cov=pydaisi --cov-report=xml tests
   displayName: test
   timeoutInMinutes: 30
+
+- script: |
+    source activate $(CONDA_ENV_NAME)
+    cd $(BUILD_DIR)/pydaisi
+    python scripts/STEP0_gr2m_calibration.py -d
+  displayName: daisi_step0
+  timeoutInMinutes: 30
+
 
 - task: PublishTestResults@2
   condition: succeededOrFailed()
@@ -104,4 +112,11 @@ steps:
     codeCoverageTool: Cobertura
     summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
     reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
+
+- task: CopyFiles@2
+  inputs:
+    sourceFolder: '$(BUILD_DIR)/pydaisi/outputs'
+    contents: '*'
+    targetFolder: '$(Build.ArtifactStagingDirectory)'
+
 

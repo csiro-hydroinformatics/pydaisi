@@ -16,4 +16,5 @@ pydaisi.egg-info
 nosetests.xml
 junit
 outputs/
+logs/
 src/pydaisi/c_pydaisi.c

@@ -19,7 +19,7 @@ from hydrodiy.io import csv
 
 import warnings
 from pygme.factory import model_factory
-from pydaisi import gr2m_enks, gr2m_update, \
+from pydaisi import gr2m_ensmooth, gr2m_update, \
                         daisi_utils, \
                         daisi_data
 
@@ -77,15 +77,15 @@ def test_compute_sig_and_rho(allclose):
     u = np.random.normal(size=nval)
     se = pd.Series(M.dot(u))
 
-    s0, r0 = gr2m_enks.compute_sig_and_rho(se, 1., 1.)
+    s0, r0 = gr2m_ensmooth.compute_sig_and_rho(se, 1., 1.)
     assert allclose(s0, 1., atol=5e-2)
     assert allclose(r0, rho, atol=5e-2)
 
-    s, r = gr2m_enks.compute_sig_and_rho(se, 1e-2, 0.)
+    s, r = gr2m_ensmooth.compute_sig_and_rho(se, 1e-2, 0.)
     assert allclose(s, s0*1e-2)
     assert allclose(r, 0.)
 
-    s, r = gr2m_enks.compute_sig_and_rho(se, 1., 2.)
+    s, r = gr2m_ensmooth.compute_sig_and_rho(se, 1., 2.)
     assert allclose(r, 1-1e-6)
 
 
@@ -100,7 +100,7 @@ def test_sigma(allclose):
                         [0.55, 0.64, 0.55, 1, 0.47], \
                         [0.78, 0.76, 0.77, 0.47, 1.]])
     varcorr = pd.DataFrame(varcorr, index=varnames, columns=varnames)
-    Sigma, status = gr2m_enks.get_sigma(varnames, sigs, rhos, \
+    Sigma, status = gr2m_ensmooth.get_sigma(varnames, sigs, rhos, \
                                 varcorr, nval)
 
 
@@ -116,7 +116,7 @@ def test_sample(allclose):
     r1, r2 = 0.9, 0.8
     varcorr = np.array([[1, r1, r2], [r1, 1., r1], [r2, r1, 1]])
     varcorr = pd.DataFrame(varcorr, index=varnames, columns=varnames)
-    Sigma, status = gr2m_enks.get_sigma(varnames, sigs, rhos, \
+    Sigma, status = gr2m_ensmooth.get_sigma(varnames, sigs, rhos, \
                                 varcorr, nval)
     assert status == 1
 
@@ -124,12 +124,12 @@ def test_sample(allclose):
     r1, r2 = 0.4, 0.5
     varcorr = np.array([[1, r1, r2], [r1, 1., r1], [r2, r1, 1]])
     varcorr = pd.DataFrame(varcorr, index=varnames, columns=varnames)
-    Sigma, status = gr2m_enks.get_sigma(varnames, sigs, rhos, \
+    Sigma, status = gr2m_ensmooth.get_sigma(varnames, sigs, rhos, \
                                 varcorr, nval)
     assert status == 0
 
     # Sample
-    U = gr2m_enks.sample(Sigma, nens)
+    U = gr2m_ensmooth.sample(Sigma, nens)
 
     # Check correlation between variables
     nvar = len(sigs)
@@ -170,12 +170,10 @@ def test_analysis(allclose):
 
     Xr = model.Xr
 
-    sfact = 0.3
-    names = ["P", "E", "S", "P3", "R", "Q", "AE", \
-                "X1", "X2", "Xr", "Q_obs"]
+    sfact = 0.5
+    names = ["P", "E", "S", "P3", "R", "Q", \
+                "Q_obs"]
     stdfacts = {n:sfact for n in names}
-    # .. no perturbation of Xr
-    stdfacts["Xr"] = 1e-6
 
     #.. no auto-correlation of perturbations
     rfact = 0.
@@ -187,7 +185,7 @@ def test_analysis(allclose):
     debug = 1
     assim_params = 0
 
-    fimg = FTESTS / "images" / "enks_test"
+    fimg = FTESTS / "images" / "ensmooth_test"
     fimg.mkdir(exist_ok=True, parents=True)
     # .. clean image folder
     for f in fimg.glob("*.png"):
@@ -229,18 +227,18 @@ def test_analysis(allclose):
         X2err = X2*np.random.uniform(-0.1, 0.1)
         model.params.values = [X1+X1err, X2+X2err, Xr]
 
-        # Initialise enks
-        enks = gr2m_enks.EnKS(model, obscal, \
+        # Initialise ensmooth
+        ensmooth = gr2m_ensmooth.EnSmooth(model, obscal, \
                     stdfacts, rhofacts, covarfact, \
                     debug)
 
-        enks.initialise()
-        enks.plot_dir = fimg
-        enks.obs = obs
+        ensmooth.initialise()
+        ensmooth.plot_dir = fimg
+        ensmooth.obs = obs
 
         # Run smoother
         lab = f"site{isite}"
-        enks.run(context=lab, message=lab)
-        Xa = enks.Xa
+        ensmooth.run(context=lab, message=lab)
+        Xa = ensmooth.Xa
 
 

@@ -181,7 +181,7 @@ def compute_corr(x, variabcorrfact):
 
 
 
-class EnKS():
+class EnSmooth():
     def __init__(self, model, \
                     obscal, \
                     stdfacts, rhofacts, variabcorrfact, \
@@ -383,14 +383,6 @@ class EnKS():
         self.SigmaE = SigmaE
         self.Xperturb = sample(SigmaE, nens)
 
-        # Set parameters
-        logparams0 = np.log(self.model.params.values)
-        SigmaP = np.diag([self.stdfacts[n] for n in model.params.names])**2
-        self.SigmaP = SigmaP
-        perr = sample(SigmaP, nens)
-        self.logparams = logparams0[:, None]+perr
-        self.logparams0 = logparams0
-
         # initialise matrix containing analysed states.
         # For S and R, these are store values at the beginning of
         # the time step after perturbation (i.e. not the same as Sini and Rini)
@@ -538,15 +530,12 @@ class EnKS():
         transP.check_input_arrays = True
         transQ.check_input_arrays = True
 
-        # Set back original parameters
-        self.model.params.values = np.exp(self.logparams0)
-
         return X
 
 
     def analysis(self, tend, Xf, HXf):
         if not hasattr(self, "model"):
-            raise ValueError("EnKS is not initialised")
+            raise ValueError("EnSmooth is not initialised")
 
         nstates = self.nstates_assim
         nobs = len(self.obs_variables)
@@ -571,17 +560,17 @@ class EnKS():
         # Identify non-missing values from first ensemble
         iok = ~np.isnan(W[:, 0])
 
-        ## EnKS analysis for non-missing values
+        ## EnSmooth analysis for non-missing values
         ## .. update = CH x (HCH+R)^-1 x (D-HXf)
         V = solve(P[iok][:, iok], W[iok], assume_a="pos")
         update = CH[:, iok].dot(V)
 
-        # .. Apply EnKS update
+        # .. Apply EnSmooth update
         xtmp = Xf+update
         self.Xa[:nparams+nstates*tend, :] = xtmp
 
 
-    def run(self, context="EnKS_run", message="Running Enks"):
+    def run(self, context="EnSmooth_run", message="Running Enks"):
         tstart = 0
         nstates = self.nstates_assim
         nparams = 0 # No assimilation of parameters
@@ -609,7 +598,7 @@ class EnKS():
             ixf = ixf.ravel()
             HXf = Xf[ixf, :]
 
-            # Run EnKS and update Xa
+            # Run EnSmooth and update Xa
             self.analysis(tend, Xf, HXf)
 
             # Loop
@@ -622,7 +611,7 @@ class EnKS():
                     errmess = f"plot_dir is None"
                     raise ValueError(errmess)
 
-                fname = self.plot_dir/f"enks_{context}_T{tend:03d}.png"
+                fname = self.plot_dir/f"ensmooth_{context}_T{tend:03d}.png"
                 self.plot(fname)
 
 

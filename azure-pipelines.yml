@@ -99,24 +99,18 @@ steps:
   displayName: daisi_step0
   timeoutInMinutes: 30
 
-
-- task: PublishTestResults@2
-  condition: succeededOrFailed()
-  inputs:
-    testResultsFiles: '**/test-*.xml'
-    testRunTitle: 'Publish test results for Python $(python.version)'
-
 - task: PublishCodeCoverageResults@1
-  displayName: 'Publish Cobertura Coverage Report'
+  displayName: publish_coverage_report
   inputs:
     codeCoverageTool: Cobertura
     summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
     reportDirectory: '$(System.DefaultWorkingDirectory)/**/htmlcov'
 
 - task: CopyFiles@2
+  displayName: publish_step0_results
   inputs:
-    sourceFolder: '$(BUILD_DIR)/pydaisi/outputs'
-    contents: '*'
+    sourceFolder: '$(BUILD_DIR)/pydaisi/outputs/STEP0_gr2m_calibration'
+    contents: '*.csv'
     targetFolder: '$(Build.ArtifactStagingDirectory)'
 
 

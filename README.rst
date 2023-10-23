@@ -12,6 +12,7 @@ What is pydaisi?
 
 Installation
 ~~~~~~~~~~~~
+- Create a suitable python environment. We recommend using `miniconda <https://docs.conda.io/projects/miniconda/en/latest/>`__ combined with the environment specification provided in the env_nriv_v2.yml file in this repository.
 - Install the `hydrodiy <https://github.com/csiro-hydroinformatics/hydrodiy>`__ package.
 - Install the `pygme <https://github.com/csiro-hydroinformatics/pygme>`__ package.
 - Download the `source code <https://github.com/csiro-hydroinformatics/pydaisi>`__ and run ``python setup.py install``.

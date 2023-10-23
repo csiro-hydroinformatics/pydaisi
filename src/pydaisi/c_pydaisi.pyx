@@ -5,7 +5,7 @@ np.import_array()
 
 # -- HEADERS --
 cdef extern from "c_gr2m_update.h":
-    int c_get_modif_params_start()
+    int c_get_update_params_start()
 
     int c_gr2m_update_run(int nval, int nconfig, int nparams,
             int ninputs,
@@ -54,8 +54,8 @@ def __cinit__(self):
     pass
 
 
-def get_modif_params_start():
-    return c_get_modif_params_start()
+def get_update_params_start():
+    return c_get_update_params_start()
 
 
 # GR2M functions

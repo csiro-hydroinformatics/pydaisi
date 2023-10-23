@@ -414,7 +414,6 @@ class BayesianRegression():
         self.S = S
 
         # no prior set up (i.e. uninformative)
-        self.has_inf_prior = False
         self.eta0 = np.zeros(self.nparams)
 
 

@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 from matplotlib.dates import date2num
 
 
-from pydamsi.nonstat_utils import Transform
-import c_pydamsi
+from pydaisi.daisi_utils import Transform
+import c_pydaisi
 
 from tqdm import tqdm
 
@@ -21,36 +21,11 @@ FROOT = FHERE.parent
 
 
 def ar1chol(nval, rho):
-    #z = np.zeros(nval)
-    #C = np.concatenate([rho**np.arange(nval), z])[None, :]
-    #a = math.sqrt(1-rho**2)
-    #C = a*np.row_stack([np.roll(C, i, axis=1) \
-    #                    for i in range(nval)])[:, :nval].T
-    #return C
     z = rho**np.arange(nval)
     M = np.concatenate([z, z[::-1][:-1]])[None, :]
     M = np.row_stack([np.roll(M, i, axis=1) \
                         for i in range(nval)])[:, :nval].T
-
-    # Sum of all elements of M:
-    # For each column j:
-    # Sj = sum(rho^k, k=0, n-j)+sum(rho^k, j, j-1)
-    #    = (1-rho^(n-j+1))/(1-rho) + (rho-rho^j)/(1-rho)
-    #    = (1+rho)/(1-rho) -(rho^(n-j+1)+rho^j)/(1-rho)
-    #
-    # Sum of all columns of M:
-    # S = sum(Sj, j=1, n)
-    #   = n.(1+rho)/(1-rho)-1/(1-rho)[(rho^n-1)/(1-1/rho)+(rho-rho^(n+1))/(1-rho)]
-    #   = n.(1+rho)/(1-rho)-2(rho-rho^(n+1))/(1-rho^2)
-    #
-    # Consequently, we need a normalising factor equal to
-    # a = S/n^2
-    #s = nval*(1+rho)/(1-rho)-2*(rho-rho**(nval+1))/(1-rho)**2
-    #assert np.isclose(s, M.sum())
-    #a = np.sqrt(nval/s)
-
     C = np.linalg.cholesky(M)
-
     return C
 
 
@@ -143,7 +118,6 @@ def get_sigma(varnames, sigs, rhos, variabcorr, nval):
 
 
 def sample(Sigma, nens):
-    #C = np.linalg.cholesky(Sigma)
     eig, Q = np.linalg.eig(Sigma)
     U = np.random.normal(size=(Sigma.shape[0], nens))
     return Q.dot(np.diag(np.sqrt(eig))).dot(U)
@@ -297,8 +271,6 @@ class EnKS():
         self.X1 = model.X1
         self.Xr = model.Xr
         self.X2 = model.X2
-        self.alphaP = model.alphaP
-        self.alphaE = model.alphaE
 
         # Transforms
         xclip = 1e-3 if clip==1 else -model.nu+2e-4
@@ -634,13 +606,13 @@ class EnKS():
             Sprev = model.outputs[tend-1, mS]
             P = model.outputs[tend-1, mP] # Perturbed rainfall
             E = model.outputs[tend-1, mE] # Perturbed PET
-            Sini = c_pydamsi.gr2m_S_fun(self.X1, Sprev, P, E)
-            P3 = c_pydamsi.gr2m_P3_fun(self.X1, Sprev, P, E)
+            Sini = c_pydaisi.gr2m_S_fun(self.X1, Sprev, P, E)
+            P3 = c_pydaisi.gr2m_P3_fun(self.X1, Sprev, P, E)
             self.Sini[iens] = Sini
 
             # .. routing store
             Rprev = model.outputs[tend-1, mR]
-            self.Rini[iens] = c_pydamsi.gr2m_R_fun(self.X2, self.Xr, Rprev, P3)
+            self.Rini[iens] = c_pydaisi.gr2m_R_fun(self.X2, self.Xr, Rprev, P3)
 
         # Put back safety
         transP.check_input_arrays = True

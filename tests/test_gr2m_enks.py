@@ -19,16 +19,17 @@ from hydrodiy.io import csv
 
 import warnings
 from pygme.factory import model_factory
-from pynonstat import gr2m_enks, gr2m_modif, \
-                        nonstat_utils
+from pydaisi import gr2m_enks, gr2m_update, \
+                        daisi_utils, \
+                        daisi_data
 
 FTESTS = Path(__file__).resolve().parent
 
-from datareader import get_params, get_data
+from test_gr2m_update import get_params, NSITES, SITEIDS
 
 from tqdm import tqdm
 
-class DUMMY(gr2m_modif.GR2MMODIF):
+class DUMMY(gr2m_update.GR2MUPDATE):
 
     def run(self):
         P, E = self.inputs[:, :2].T
@@ -165,78 +166,76 @@ def test_sample(allclose):
 
 def test_analysis(allclose):
     # Enks config
+    model = gr2m_update.GR2MUPDATE()
+
+    Xr = model.Xr
+
     sfact = 0.3
     names = ["P", "E", "S", "P3", "R", "Q", "AE", \
-                "X1", "X2", "Xr", "alphaP", "alphaE", "Q_obs"]
+                "X1", "X2", "Xr", "Q_obs"]
     stdfacts = {n:sfact for n in names}
-    for pn in ["Xr", "alphaP", "alphaE"]:
-        stdfacts[pn] = 1e-6
+    # .. no perturbation of Xr
+    stdfacts["Xr"] = 1e-6
 
+    #.. no auto-correlation of perturbations
     rfact = 0.
     rhofacts = {n:rfact for n in names}
 
     locdur = 5000
-    covarfact = 1.0
+    covarfact = 0.1
     clip = 1
     debug = 1
-    assim_params = 1
+    assim_params = 0
 
-    if "NWORK" in os.environ:
-        fimg = Path(os.environ["NWORK"]) / "werp_non_stationarity" \
-                    / "images" / "enks_test"
-    else:
-        fimg = FTESTS / "images" / "enks_test"
-
+    fimg = FTESTS / "images" / "enks_test"
     fimg.mkdir(exist_ok=True, parents=True)
     # .. clean image folder
     for f in fimg.glob("*.png"):
         f.unlink()
 
+    # parameters
+    params = get_params(NSITES, [model.X1, model.X2])
+
     # Data selection
-    isites = np.arange(10)
     nvalmax = 200
 
-    # Check analysis for the 2 kinds of models
-    # with or without baseline approx
-    model = gr2m_modif.GR2MMODIF()
-
-    # Set default params -> GR2M
-    #model.set_interp_params()
-    #lamP, lamE, lamQ, nu = 0., 1.0, 0.2, 1.
-    #model.lamQ = lamQ
-    #model.lamP = lamP
-    #model.lamE = lamE
-    #model.nu = nu
-
-    for isite in isites:
-        _, inputs, sims, X1, X2 = get_data(isite)
+    for isite in range(NSITES):
+        mthly = daisi_data.get_data(SITEIDS[isite])
+        inputs, obs, itotal, iactive, ieval = daisi_data.get_inputs_and_obs(mthly, "per1")
         inputs = inputs[-nvalmax:]
-        sims = sims.iloc[-nvalmax:]
-        nval = len(sims)
+        mthly = mthly.iloc[-nvalmax:]
 
         model.allocate(inputs)
-
-        Xr, alphaP, alphaE = 60., 1., 1.
-        model.params.values = [X1, X2, Xr, alphaP, alphaE]
+        X1 = params[isite, 0]
+        X2 = params[isite, 1]
+        model.params.values = [X1, X2, Xr]
         model.initialise_fromdata()
         model.run()
 
-        # Generate Qcal
-        Qobs = sims.Qobs
+        # Generate Qcal with assimilation one out of 2 obs values
+        sims = model.to_dataframe()
+        Qobs = sims.Q+np.random.uniform(-1, 1, len(sims))
         Qobscal = np.nan*Qobs.copy()
-        ical = np.zeros(nval)
-        #ical[::5] = 1
-        ical[:] = 1
+        ical = np.zeros(len(Qobs))
+        ical[::2] = 1
         Qobscal[ical==1] = Qobs.values[ical==1]
 
         obscal = pd.DataFrame({"Q": Qobscal})
         obs = pd.DataFrame({"Q": Qobs})
 
+        # Corrupt parameters
+        X1err = X1*np.random.uniform(-0.1, 0.1)
+        X2err = X2*np.random.uniform(-0.1, 0.1)
+        model.params.values = [X1+X1err, X2+X2err, Xr]
+
         # Loop over smoother options
+        # .. assim_states = 2 (both states assimilated)
+        # .. perturb_states = 3 (both stores)
+        # .. perturb_inputs = 3 (both rain and PET)
+        # .. assim_params = 0 (no param assim)
         for ensmoother, assim_states, perturb_states, \
                 perturb_inputs, assim_params \
-                    in prod([1], [2], [0], [3], [1]):
-                    #in prod([1], [2], [0, 3], [0, 3], [1]):
+                    in prod([1], [2], [3], [3], [0]):
 
             if perturb_inputs+perturb_states == 0:
                 continue

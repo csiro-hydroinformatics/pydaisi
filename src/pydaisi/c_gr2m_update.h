@@ -29,7 +29,7 @@
 #define GR2M_UPDATE_NINPUTS 8
 
 /* X1, X2 + Xr added as extra params */
-#define GR2M_UPDATE_NPARAMS 5
+#define GR2M_UPDATE_NPARAMS 3
 
 /* Number of states returned by update run */
 #define GR2M_UPDATE_NSTATES 2
@@ -37,7 +37,7 @@
 /* Number of outputs returned by update run */
 #define GR2M_UPDATE_NOUTPUTS 20
 
-int c_get_modif_params_start();
+int c_get_update_params_start();
 
 int c_gr2m_update_run(int nval, int nconfig, int nparams, int ninputs,
     int nstates, int noutputs,

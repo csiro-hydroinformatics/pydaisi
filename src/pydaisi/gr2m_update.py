@@ -69,13 +69,7 @@ class GR2MUPDATE(Model):
         # lamP = BoxCox exponent for rainfall perturbation
         # lamQ = BoxCox exponent for runoff perturbation
         # nu = BoxCox shift param
-        # usebaseline = apply modification to production store or not
-        # nodesS 1, 2, 3 = S approx nodes
-        # nodesR 1, 2, 3 = R approx nodes
-        nSnames = [f"nodeS{i}" for i in range(1, 4)]
-        nRnames = [f"nodeR{i}" for i in range(1, 4)]
-        cnames = ["notused", "lamP", "lamE", "lamQ", "nu"]\
-                        + nSnames + nRnames + lnames
+        cnames = ["notused", "lamP", "lamE", "lamQ", "nu"]+lnames
         # Default radius is set to 0 to match with default useradial=0
         cdef = [60, 0.0, 1.0, 0.2, 1.0] + [0.]*len(lnames)
         cmins = [1, -1., -1., 0., 0.] + [-1e100]*len(lnames)
@@ -181,7 +175,7 @@ class GR2MUPDATE(Model):
 
     def get_interp_params_indexes(self):
         """ Indexes within config vector """
-        i0 = c_pydaisi.get_modif_params_start()
+        i0 = c_pydaisi.get_update_params_start()
         assert self.config.names[i0] == "S-00"
         kndS = np.arange(i0-6, i0-3) # Nodes S
         kndR = np.arange(i0-3, i0) # Nodes R
@@ -193,11 +187,6 @@ class GR2MUPDATE(Model):
 
 
     def set_interp_params(self, interp_params=None):
-        usebaseline = self.get_usebaseline()
-        useradial = self.get_useradial()
-        uselinpred = self.get_uselinpred()
-        useconstraint = self.get_useconstraint()
-
         if interp_params is None:
             interp_params = get_interp_params_ini(\
                                     X1=self.X1, X2=self.X2, Xr=self.Xr, \
@@ -248,7 +237,7 @@ class GR2MUPDATE(Model):
                 "R": self.config.values[i0+2*nS+kR], \
                 "Q": self.config.values[i0+2*nS+nR+kR], \
             }, \
-            "GR2M": [self.X1, self.X2, self.Xr, self.alphaP, self.alphaE], \
+            "GR2M": [self.X1, self.X2, self.Xr], \
             "info": {
                 "lamQ": self.lamQ, \
                 "lamE": self.lamE, \

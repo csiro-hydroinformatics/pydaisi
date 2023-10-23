@@ -1,7 +1,7 @@
 #include "c_gr2m_update.h"
 
 /* Utility to get the constant in python */
-int c_get_modif_params_start() {
+int c_get_update_params_start() {
     return GR2M_UPDATE_PARAMS_START;
 }
 
@@ -45,14 +45,14 @@ int c_gr2m_update_runtimestep(int nconfig, int nparams, int ninputs,
     /* production variables */
     double phi, psi, S1, S2, Sr, S3, P1, P2;
     double Sstart, AE, Send, P3, Send_nocheck, P3_nocheck;
-    double u_modif, u_baseline;
-    double p3n_modif, p3n_baseline;
+    double u_update, u_baseline;
+    double p3n_update, p3n_baseline;
 
     /* Routing variables */
     double R1, R2, R3;
     double Rstart, F, Rend, Rend_nocheck;
-    double v_modif, v_baseline;
-    double Q, Q1, qn_modif, qn_baseline, Q_nocheck;
+    double v_update, v_baseline;
+    double Q, Q1, qn_update, qn_baseline, Q_nocheck;
     double tPdelta, tEdelta, Sdelta, tP3delta, Rdelta, tQdelta;
 
     /* GR2M parameters  and radial basis config */
@@ -127,25 +127,25 @@ int c_gr2m_update_runtimestep(int nconfig, int nparams, int ninputs,
 
     /* S reservoir */
     /* .. approx */
-    u_modif = 0;
+    u_update = 0;
     for(ibfun=0; ibfun<NPT3D; ibfun++) {
-        u_modif += w3d[ibfun]*config[GR2M_UPDATE_PARAMS_START+ibfun];
+        u_update += w3d[ibfun]*config[GR2M_UPDATE_PARAMS_START+ibfun];
     }
 
     /* .. back transform */
-    Send = c_gr2m_prod_S_norm2raw(X1, u_baseline+u_modif);
+    Send = c_gr2m_prod_S_norm2raw(X1, u_baseline+u_update);
 
     /* .. check bounds */
     Send_nocheck = Send;
 
     /* P3 value */
     /* .. approx */
-    p3n_modif = 0;
+    p3n_update = 0;
     for(ibfun=0; ibfun<NPT3D; ibfun++)
-        p3n_modif += w3d[ibfun]*config[GR2M_UPDATE_PARAMS_START+NPT3D+ibfun];
+        p3n_update += w3d[ibfun]*config[GR2M_UPDATE_PARAMS_START+NPT3D+ibfun];
 
     /* .. back transform */
-    P3 = c_gr2m_prod_P3_norm2raw(X1, p3n_baseline+p3n_modif);
+    P3 = c_gr2m_prod_P3_norm2raw(X1, p3n_baseline+p3n_update);
     P3_nocheck = P3;
 
     /* .. check bounds and mass balance (max = assumes 0 AET) */
@@ -184,22 +184,22 @@ int c_gr2m_update_runtimestep(int nconfig, int nparams, int ninputs,
 
     /* R reservoir */
     /* .. approx */
-    v_modif = 0;
+    v_update = 0;
     for(ibfun=0; ibfun<NPT2D; ibfun++)
-        v_modif += w2d[ibfun]*config[GR2M_UPDATE_PARAMS_START+NPT3D*2+ibfun];
+        v_update += w2d[ibfun]*config[GR2M_UPDATE_PARAMS_START+NPT3D*2+ibfun];
 
     /* .. denormalise .. */
-    Rend = c_gr2m_rout_Rend_norm2raw(X2, Xr, v_baseline+v_modif);
+    Rend = c_gr2m_rout_Rend_norm2raw(X2, Xr, v_baseline+v_update);
     Rend_nocheck = Rend;
 
     /* Q value */
     /* .. approx */
-    qn_modif = 0;
+    qn_update = 0;
     for(ibfun=0; ibfun<NPT2D; ibfun++)
-        qn_modif += w2d[ibfun]*config[GR2M_UPDATE_PARAMS_START+NPT3D*2+NPT2D+ibfun];
+        qn_update += w2d[ibfun]*config[GR2M_UPDATE_PARAMS_START+NPT3D*2+NPT2D+ibfun];
 
     /* .. denormalise .. */
-    Q = c_gr2m_rout_Q_norm2raw(X2, Xr, qn_baseline+qn_modif);
+    Q = c_gr2m_rout_Q_norm2raw(X2, Xr, qn_baseline+qn_update);
     Q_nocheck = Q;
 
     /* .. check bounds */
@@ -293,22 +293,22 @@ int c_gr2m_update_runtimestep(int nconfig, int nparams, int ninputs,
         return ierr;
 
     if(noutputs>16)
-        outputs[16] = u_modif;
+        outputs[16] = u_update;
     else
         return ierr;
 
     if(noutputs>17)
-        outputs[17] = p3n_modif;
+        outputs[17] = p3n_update;
     else
         return ierr;
 
     if(noutputs>18)
-        outputs[18] = v_modif;
+        outputs[18] = v_update;
     else
         return ierr;
 
     if(noutputs>19)
-        outputs[19] = qn_modif;
+        outputs[19] = qn_update;
     else
         return ierr;
 

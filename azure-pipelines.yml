@@ -59,11 +59,11 @@ steps:
 - task: Cache@2
   displayName: Use cached Anaconda environment
   inputs:
-    key: conda | $(BUILD_DIR)/pydamsi/env_nriv_v2.yml
+    key: conda | $(BUILD_DIR)/pydaisi/env_nriv_v2.yml
     path: $(CONDA_HOME)
     cacheHitVar: CONDA_CACHE_RESTORED
 
-- bash: conda env create --file  $(BUILD_DIR)/pydamsi/env_nriv_v2.yml
+- bash: conda env create --file  $(BUILD_DIR)/pydaisi/env_nriv_v2.yml
   displayName: Create Anaconda environment (if not restored from cache)
   condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
 
@@ -81,14 +81,14 @@ steps:
 
 - script: |
     source activate $(CONDA_ENV_NAME)
-    cd $(BUILD_DIR)/pydamsi
+    cd $(BUILD_DIR)/pydaisi
     python setup.py develop
   displayName: package_install
 
 - script: |
     source activate $(CONDA_ENV_NAME)
-    cd $(BUILD_DIR)/pydamsi
-    pytest --junitxml=junit/test-results.xml --cov=pydamsi --cov-config=.coveragerc --cov-report=xml tests
+    cd $(BUILD_DIR)/pydaisi
+    pytest --junitxml=junit/test-results.xml --cov=pydaisi --cov-config=.coveragerc --cov-report=xml tests
   displayName: test
   timeoutInMinutes: 30
 

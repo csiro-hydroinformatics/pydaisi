@@ -54,15 +54,5 @@ double c_boxcox_forward(double x, double lam, double nu);
 double c_boxcox_backward(double y, double lam, double nu);
 double c_boxcox_perturb(double x, double delta, double lam, double nu, double xclip);
 
-int c_radialbasis(int ndim, int nnodes, int nx, int radfun, double radius,
-                        double * nodes,
-                        double * x, double * out);
-
-double c_lnodes(int i, int n);
-
-int c_lagrangebasis_1d(double x, double nodes[3], double w1d[3]);
-int c_lagrangebasis_2d(double xy[2], double nodes[3], double w2d[9]);
-int c_lagrangebasis_3d(double xyz[3], double nodes[3], double w3d[27]);
-
 #endif
 

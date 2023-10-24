@@ -65,8 +65,7 @@ class DUMMY(gr2m_update.GR2MUPDATE):
         self.outputs[:, iQ] = Q
 
 
-def test_compute_sig_and_rho(allclose):
-
+def test_compute_sig(allclose):
     nval = 1000
     rho = 0.7
     r = np.concatenate([rho**np.arange(nval), \
@@ -77,31 +76,30 @@ def test_compute_sig_and_rho(allclose):
     u = np.random.normal(size=nval)
     se = pd.Series(M.dot(u))
 
-    s0, r0 = gr2m_ensmooth.compute_sig_and_rho(se, 1., 1.)
+    s0 = gr2m_ensmooth.compute_sig(se, 1.)
     assert allclose(s0, 1., atol=5e-2)
-    assert allclose(r0, rho, atol=5e-2)
 
-    s, r = gr2m_ensmooth.compute_sig_and_rho(se, 1e-2, 0.)
+    s = gr2m_ensmooth.compute_sig(se, 1e-2)
     assert allclose(s, s0*1e-2)
-    assert allclose(r, 0.)
 
-    s, r = gr2m_ensmooth.compute_sig_and_rho(se, 1., 2.)
-    assert allclose(r, 1-1e-6)
 
 
 def test_sigma(allclose):
     nval = 290
     varnames = ["R", "P3", "Q", "P", "S"]
     sigs = {"R": 0.51, "P3": 0.1, "Q": 0.26, "P": 0.13, "S": 11.4}
-    rhos = {"R": 0.66, "P3": 0.59, "Q": 0.65, "P": 0.19, "S": 0.71}
-    varcorr = np.array([[1, 0.78, 0.79, 0.55, 0.78], \
-                        [0.78, 1, 0.78, 0.64, 0.76], \
-                        [0.79, 0.78, 1, 0.55, 0.77], \
-                        [0.55, 0.64, 0.55, 1, 0.47], \
-                        [0.78, 0.76, 0.77, 0.47, 1.]])
-    varcorr = pd.DataFrame(varcorr, index=varnames, columns=varnames)
-    Sigma, status = gr2m_ensmooth.get_sigma(varnames, sigs, rhos, \
-                                varcorr, nval)
+    Sigma = gr2m_ensmooth.get_sigma(varnames, sigs, nval)
+
+    nvar = len(varnames)
+    n = nvar*nval
+    assert Sigma.shape == (n, n)
+
+    d = np.diag(Sigma)
+    ii = np.arange(0, n, nvar)
+    for i in range(nvar):
+        assert allclose(d[ii+i], sigs[varnames[i]]**2)
+
+    assert allclose(Sigma-np.diag(d), 0.)
 
 
 def test_sample(allclose):
@@ -111,31 +109,12 @@ def test_sample(allclose):
     sigs = {"A": 1., "B": 3., "C": 0.1}
     rhos = {"A": 0., "B": 0.8, "C": 0.5}
     varnames = ["B", "C", "A"]
+    nvar = len(varnames)
 
-    # Check covariance warning is raised
-    r1, r2 = 0.9, 0.8
-    varcorr = np.array([[1, r1, r2], [r1, 1., r1], [r2, r1, 1]])
-    varcorr = pd.DataFrame(varcorr, index=varnames, columns=varnames)
-    Sigma, status = gr2m_ensmooth.get_sigma(varnames, sigs, rhos, \
-                                varcorr, nval)
-    assert status == 1
 
     # Run sampling with lower covariance that does not trigger warning
-    r1, r2 = 0.4, 0.5
-    varcorr = np.array([[1, r1, r2], [r1, 1., r1], [r2, r1, 1]])
-    varcorr = pd.DataFrame(varcorr, index=varnames, columns=varnames)
-    Sigma, status = gr2m_ensmooth.get_sigma(varnames, sigs, rhos, \
-                                varcorr, nval)
-    assert status == 0
-
-    # Sample
+    Sigma = gr2m_ensmooth.get_sigma(varnames, sigs, nval)
     U = gr2m_ensmooth.sample(Sigma, nens)
-
-    # Check correlation between variables
-    nvar = len(sigs)
-    V = np.array([U[ivar::nvar, :].ravel() for ivar in range(nvar)])
-    co = np.corrcoef(V)
-    assert np.allclose(co, varcorr, atol=5e-3, rtol=0.)
 
     # Check characteristics for each variable
     for ivar, varname in tqdm(enumerate(varnames), \
@@ -157,37 +136,20 @@ def test_sample(allclose):
         assert allclose(S1, S0, rtol=5e-2, atol=0.1)
         assert allclose(S0.std(), S1.std(), rtol=1e-1, atol=5e-2)
 
-        # Check auto-regressive component
-        R0 = pd.DataFrame(U0).apply(lambda x: x.autocorr())
-        R1 = pd.DataFrame(U1).apply(lambda x: x.autocorr())
-        assert allclose(R1.mean(), rr, rtol=0., atol=R0.std())
-        assert allclose(R0.std(), R1.std(), rtol=5e-2, atol=1e-3)
 
 
 def test_analysis(allclose):
     # Enks config
     model = gr2m_update.GR2MUPDATE()
-
     Xr = model.Xr
-
     sfact = 0.5
     names = ["P", "E", "S", "P3", "R", "Q", \
                 "Q_obs"]
     stdfacts = {n:sfact for n in names}
 
-    #.. no auto-correlation of perturbations
-    rfact = 0.
-    rhofacts = {n:rfact for n in names}
-
-    locdur = 5000
-    covarfact = 0.1
-    clip = 1
-    debug = 1
-    assim_params = 0
-
+    # Plotting folder
     fimg = FTESTS / "images" / "ensmooth_test"
     fimg.mkdir(exist_ok=True, parents=True)
-    # .. clean image folder
     for f in fimg.glob("*.png"):
         f.unlink()
 
@@ -229,8 +191,7 @@ def test_analysis(allclose):
 
         # Initialise ensmooth
         ensmooth = gr2m_ensmooth.EnSmooth(model, obscal, \
-                    stdfacts, rhofacts, covarfact, \
-                    debug)
+                    stdfacts, debug=True)
 
         ensmooth.initialise()
         ensmooth.plot_dir = fimg

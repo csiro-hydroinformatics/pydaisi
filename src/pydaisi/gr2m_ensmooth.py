@@ -20,101 +20,20 @@ FHERE = Path(__file__).resolve().parent
 FROOT = FHERE.parent
 
 
-def ar1chol(nval, rho):
-    z = rho**np.arange(nval)
-    M = np.concatenate([z, z[::-1][:-1]])[None, :]
-    M = np.row_stack([np.roll(M, i, axis=1) \
-                        for i in range(nval)])[:, :nval].T
-    C = np.linalg.cholesky(M)
-    return C
-
-
-def get_sigma(varnames, sigs, rhos, variabcorr, nval):
+def get_sigma(varnames, sigs, nval):
     nvar = len(varnames)
     assert all([(n in sigs) for n in varnames]), \
                         "Expected all varnames in sigs"
-    assert all([(n in rhos) for n in varnames]), \
-                        "Expected all varnames in sigs"
 
-    variabcorr = variabcorr.loc[varnames, varnames].values
-    assert variabcorr.shape == (nvar, nvar), \
-                        "Expected rhovar.shape=(nvar, nvar)."
-    np.linalg.cholesky(variabcorr)
-    assert np.allclose(variabcorr, variabcorr.T)
-    assert np.allclose(np.diag(variabcorr), 1.)
-
-    # Compute cholesky decomposition of covariance matrix
-    # for each variable (i.e. time covariance)
-    # .. original naive form
-    #C = [sigs[vn]*np.linalg.cholesky(\
-    #            toeplitz(rhos[vn]**np.arange(nval))) \
-    #                for vn in varnames]
-    # .. more stable form
-    C = [sigs[vn]*ar1chol(nval, rhos[vn]) \
-                        for vn in varnames]
-
-    # Build covariance matrix by brute force,
-    # there may be a much smarter way to do this...
+    # Build covariance matrix
     Sigma = np.zeros((nval*nvar, nval*nvar))
-    status = 0
     indices = np.arange(nval*nvar)
-    for i, j in combwr(range(nvar), 2):
-        # Reorganise matrix to have each columns of ens containing:
-        # [ v0[t0], v1[t0], ..., vn[t0], v0[t1], v1[t1], ...
-        #                                   vn[t1], v1[t2],...]
-        ii = indices[i::nvar][:, None]
+    for i in range(nvar):
+        ii = indices[i::nvar]
         vi = varnames[i]
-        vj = varnames[j]
+        Sigma[ii, ii] = sigs[vi]**2
 
-        if i==j:
-            S = C[i].dot(C[i].T)
-            Sigma[ii, ii.T] = S
-        else:
-            B0 = C[i].dot(C[j].T)
-
-            # Asymptotic value of diagonal term of B0
-            ri, rj = rhos[vi], rhos[vj]
-            si, sj = sigs[vi], sigs[vj]
-            vref = si*sj*math.sqrt(1-ri**2)*math.sqrt(1-rj**2)/(1-ri*rj)
-
-            # Target covariance vi/vj
-            v = variabcorr[i, j]*si*sj
-
-            # Set threshold to avoid degenerescence
-            vthresh = vref*0.999
-            if v>vthresh:
-                mess = f"Reducing covariance {vi}/{vj} to keep matrix "+\
-                        f"semi-definite positive (v={v:0.4f}/"+\
-                        f"vthresh={vthresh:0.4f})"
-                warnings.warn(mess)
-                status = 1
-
-            v = min(v, vthresh)
-            B = v/vref*B0
-
-            jj = np.arange(nval*nvar)[j::nvar][None, :]
-            Sigma[ii, jj] = B
-            Sigma[jj.T, ii.T] = B.T
-
-    eig, Q = np.linalg.eig(Sigma)
-
-    if np.any(np.iscomplex(eig)):
-        r, im = eig.real, eig.imag
-        assert np.all(np.abs(im)<1e-10)
-        eig = r
-
-    if np.any(eig<-1e-10):
-        nc = np.sum(eig<-1e-10)
-        mess = f"Correcting {nc}/{len(eig)} eigen values "+\
-             f"to keep Sigma def pos. min(eig)/max(eig) = "+\
-             f"{eig.min()/eig.max():2.2e}."
-        warnings.warn(mess)
-        status = 1
-        eig = np.maximum(eig, 0)
-
-    Sigma = Q.dot(np.diag(eig)).dot(Q.T)
-
-    return Sigma, status
+    return Sigma
 
 
 def sample(Sigma, nens):
@@ -123,68 +42,17 @@ def sample(Sigma, nens):
     return Q.dot(np.diag(np.sqrt(eig))).dot(U)
 
 
-def compute_sig_and_rho(x, stdfact, rhofact):
+def compute_sig(x, stdfact):
     assert stdfact>=1e-6 and stdfact<=1.
-    assert rhofact>=0. and rhofact<=2.
-
     sig = np.nanstd(x)*stdfact # ensures sig>1e-6
     sig = 1e-3 if np.isnan(sig) or sig<1e-3 else sig
-
-    rho = pd.Series(x).autocorr()
-    if rhofact <= 1.0:
-        rho = rho*rhofact
-    else:
-        f = rhofact-1
-        rho = max(rho, 1-1e-6)*f+rho*(1-f)
-
-    rho = 0 if np.isnan(rho) or rho<0 else rho
-
-    return sig, rho
-
-
-def compute_corr(x, variabcorrfact):
-    xnames = x.columns.tolist()
-    x = np.array(x)
-    assert x.ndim == 2
-    assert x.shape[0]//2>x.shape[1]
-    assert variabcorrfact>=0 and variabcorrfact<=2
-
-    iok = np.all(~np.isnan(x), axis=1)
-    x = x[iok]
-    nvar = x.shape[1]
-
-    co = np.corrcoef(x.T)
-    d = np.diag(co)
-    d = np.where((d>1e-6)&~np.isnan(d), d, 1e-6)
-    co[np.isnan(co)] = 0.
-    k = np.arange(nvar)
-    co[k, k] = d
-    # Check covariance is ok
-    np.linalg.cholesky(co)
-
-    if variabcorrfact<=1:
-        e = np.eye(nvar)
-        corr = e+variabcorrfact*(co-e)
-    else:
-        e = np.eye(nvar)
-        o = e+(np.ones((nvar, nvar))-e)*0.99
-        a = variabcorrfact-1
-        corr = a*o+(1-a)*co
-
-    # Check corr matrix is ok
-    np.linalg.cholesky(corr)
-
-    corr = pd.DataFrame(corr, \
-                    index=xnames, \
-                    columns=xnames)
-    return corr
-
+    return sig
 
 
 class EnSmooth():
     def __init__(self, model, \
                     obscal, \
-                    stdfacts, rhofacts, variabcorrfact, \
+                    stdfacts, \
                     debug, nens=200):
         # Dims
         self.nens = nens
@@ -253,12 +121,8 @@ class EnSmooth():
             nn = n if n in self.perturb_variables else f"{n}_obs"
             assert nn in stdfacts, f"Expected {nn} in stdfacts"
             stdfacts[nn] = float(stdfacts[nn])
-            assert n in rhofacts, f"Expected {nn} in rhofacts"
-            rhofacts[nn] = float(rhofacts[nn])
 
         self.stdfacts = stdfacts
-        self.rhofacts = rhofacts
-        self.variabcorrfact = float(variabcorrfact)
 
         # Debug config
         self.debug = debug == 1
@@ -323,7 +187,7 @@ class EnSmooth():
         self.sims0 = sims0
 
         # Compute statistics for model variables
-        self.sigs, self.rhos = {}, {}
+        self.sigs = {}
         transQ = self.transQ
         xpert = {}
         pvars = set(self.perturb_variables+["S", "R"])
@@ -337,9 +201,8 @@ class EnSmooth():
             elif v in ["Q", "Q_obs"]:
                 xpert[v] = transQ.forward(xpert[v])
 
-            self.sigs[v], self.rhos[v] = compute_sig_and_rho(xpert[v], \
-                                                self.stdfacts[v], \
-                                                self.rhofacts[v])
+            self.sigs[v] = compute_sig(xpert[v], self.stdfacts[v])
+
         for v in self.obs_variables:
             vv = f"{v}_obs"
             xpert[vv] = self.obscal.loc[:, v]
@@ -349,12 +212,7 @@ class EnSmooth():
             elif v in ["Q"]:
                 xpert[vv] = transQ.forward(xpert[vv])
 
-            self.sigs[vv], self.rhos[vv] = compute_sig_and_rho(xpert[vv], \
-                                                self.stdfacts[vv], \
-                                                self.rhofacts[vv])
-        # Define variable correlations
-        xdf = pd.DataFrame(xpert)
-        self.variabcorr = compute_corr(xdf, self.variabcorrfact)
+            self.sigs[vv] = compute_sig(xpert[vv], self.stdfacts[vv])
 
         # Find times with obs data for preceeding time step
         self.ifilter = np.where(self.obscal.notnull().all(axis=1).values)[0]+1
@@ -363,8 +221,7 @@ class EnSmooth():
 
         # Randomise obs independentaly from model errors
         varnames = [f"{n}_obs" for n in self.obs_variables]
-        SigmaO, _ = get_sigma(varnames, self.sigs, self.rhos, \
-                                    self.variabcorr, nval)
+        SigmaO = get_sigma(varnames, self.sigs, nval)
         oerr = sample(SigmaO, nens)
 
         # .. transform Q data
@@ -376,10 +233,8 @@ class EnSmooth():
         self.D = D
         self.R = SigmaO
 
-        # Sample perturbation from gaussian AR1 noise on state variables
-        # i.e. transformed rainfall error, S and R
-        SigmaE, status = get_sigma(self.perturb_variables, self.sigs, \
-                                self.rhos, self.variabcorr, nval+1)
+        # Sample perturbation from gaussian noise in transformed space
+        SigmaE = get_sigma(self.perturb_variables, self.sigs, nval+1)
         self.SigmaE = SigmaE
         self.Xperturb = sample(SigmaE, nens)
 
@@ -389,15 +244,15 @@ class EnSmooth():
         # This does not apply to P, P3 and Q.
         self.Xa = np.nan*np.zeros((nval*self.nstates_assim, nens))
 
-        # Set initial conditions
+        # Set initial conditions with perturbation
         model.initialise_fromdata()
         Sini, Rini = model.states.values
 
-        SigmaS, _ = get_sigma(["S"], self.sigs, self.rhos, self.variabcorr, 1)
+        SigmaS = get_sigma(["S"], self.sigs, 1)
         serr = sample(SigmaS, nens).squeeze()
         self.Sini = np.clip(Sini+serr, 0, model.X1)
 
-        SigmaR, _ = get_sigma(["R"], self.sigs, self.rhos, self.variabcorr, 1)
+        SigmaR = get_sigma(["R"], self.sigs, 1)
         rerr = sample(SigmaR, nens).squeeze()
         self.Rini = np.clip(Rini+rerr, 0, model.Xr)
 
@@ -526,7 +381,7 @@ class EnSmooth():
             Rprev = model.outputs[tend-1, mR]
             self.Rini[iens] = c_pydaisi.gr2m_R_fun(self.X2, self.Xr, Rprev, P3)
 
-        # Put back safety
+        # Put back safety in transform functions
         transP.check_input_arrays = True
         transQ.check_input_arrays = True
 
@@ -545,9 +400,11 @@ class EnSmooth():
         # Ensemble stats
         EXf = np.mean(Xf[:nparams+nstates*tend], axis=1)
         EHXf = np.mean(HXf, axis=1)
+
         # .. Ensemble deviations
         Xprime = Xf[:nparams+nstates*tend]-EXf[:, None]
         HXprime = HXf-EHXf[:, None]
+
         # .. Covariance matrices
         HCH = HXprime.dot(HXprime.T)/(nens-1)
         CH = Xprime.dot(HXprime.T)/(nens-1)

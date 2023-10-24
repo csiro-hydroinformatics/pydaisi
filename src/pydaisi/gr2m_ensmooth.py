@@ -20,18 +20,25 @@ FHERE = Path(__file__).resolve().parent
 FROOT = FHERE.parent
 
 
-def get_sigma(varnames, sigs, nval):
+def get_sigma(varnames, sigs, variabcorr, nval):
     nvar = len(varnames)
     assert all([(n in sigs) for n in varnames]), \
                         "Expected all varnames in sigs"
 
     # Build covariance matrix
     Sigma = np.zeros((nval*nvar, nval*nvar))
-    indices = np.arange(nval*nvar)
-    for i in range(nvar):
-        ii = indices[i::nvar]
-        vi = varnames[i]
-        Sigma[ii, ii] = sigs[vi]**2
+    indices = np.arange(0, nval*nvar, nvar)
+    eye = np.eye(nval)
+    for i, j in combwr(range(nvar), 2):
+        vi, vj = varnames[i], varnames[j]
+        si, sj = sigs[vi], sigs[vj]
+        ii = (indices+i)[:, None]
+        jj = (indices+j)[None, :]
+        cij = variabcorr.loc[vi, vj]
+
+        S = si*sj*cij*eye
+        Sigma[ii, jj] = S
+        Sigma[jj.T, ii.T] = S.T
 
     return Sigma
 
@@ -47,6 +54,47 @@ def compute_sig(x, stdfact):
     sig = np.nanstd(x)*stdfact # ensures sig>1e-6
     sig = 1e-3 if np.isnan(sig) or sig<1e-3 else sig
     return sig
+
+
+
+def compute_corr(x, variabcorrfact):
+    xnames = x.columns.tolist()
+    x = np.array(x)
+    assert x.ndim == 2
+    assert x.shape[0]//2>x.shape[1]
+    assert variabcorrfact>=0 and variabcorrfact<=2
+
+    iok = np.all(~np.isnan(x), axis=1)
+    x = x[iok]
+    nvar = x.shape[1]
+
+    co = np.corrcoef(x.T)
+    d = np.diag(co)
+    d = np.where((d>1e-6)&~np.isnan(d), d, 1e-6)
+    co[np.isnan(co)] = 0.
+    k = np.arange(nvar)
+    co[k, k] = d
+    # Check covariance is ok
+    np.linalg.cholesky(co)
+
+    if variabcorrfact<=1:
+        e = np.eye(nvar)
+        corr = e+variabcorrfact*(co-e)
+    else:
+        e = np.eye(nvar)
+        o = e+(np.ones((nvar, nvar))-e)*0.99
+        a = variabcorrfact-1
+        corr = a*o+(1-a)*co
+
+    # Check corr matrix is ok
+    np.linalg.cholesky(corr)
+
+    corr = pd.DataFrame(corr, \
+                    index=xnames, \
+                    columns=xnames)
+    return corr
+
+
 
 
 class EnSmooth():
@@ -214,6 +262,10 @@ class EnSmooth():
 
             self.sigs[vv] = compute_sig(xpert[vv], self.stdfacts[vv])
 
+        # Variable correlations
+        xdf = pd.DataFrame(xpert)
+        self.variabcorr = compute_corr(xdf, 1.0)
+
         # Find times with obs data for preceeding time step
         self.ifilter = np.where(self.obscal.notnull().all(axis=1).values)[0]+1
         # .. only the last time step if Ens Smoother.
@@ -221,7 +273,8 @@ class EnSmooth():
 
         # Randomise obs independentaly from model errors
         varnames = [f"{n}_obs" for n in self.obs_variables]
-        SigmaO = get_sigma(varnames, self.sigs, nval)
+        SigmaO = get_sigma(varnames, self.sigs, \
+                                        self.variabcorr, nval)
         oerr = sample(SigmaO, nens)
 
         # .. transform Q data
@@ -234,7 +287,8 @@ class EnSmooth():
         self.R = SigmaO
 
         # Sample perturbation from gaussian noise in transformed space
-        SigmaE = get_sigma(self.perturb_variables, self.sigs, nval+1)
+        SigmaE = get_sigma(self.perturb_variables, self.sigs, \
+                                    self.variabcorr, nval+1)
         self.SigmaE = SigmaE
         self.Xperturb = sample(SigmaE, nens)
 
@@ -248,11 +302,11 @@ class EnSmooth():
         model.initialise_fromdata()
         Sini, Rini = model.states.values
 
-        SigmaS = get_sigma(["S"], self.sigs, 1)
+        SigmaS = get_sigma(["S"], self.sigs, self.variabcorr, 1)
         serr = sample(SigmaS, nens).squeeze()
         self.Sini = np.clip(Sini+serr, 0, model.X1)
 
-        SigmaR = get_sigma(["R"], self.sigs, 1)
+        SigmaR = get_sigma(["R"], self.sigs, self.variabcorr, 1)
         rerr = sample(SigmaR, nens).squeeze()
         self.Rini = np.clip(Rini+rerr, 0, model.Xr)
 

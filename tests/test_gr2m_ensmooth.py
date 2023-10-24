@@ -1,6 +1,7 @@
 import math, sys, json, os
 import re
 from itertools import product as prod
+from itertools import combinations_with_replacement as combwr
 from pathlib import Path
 
 import pytest
@@ -88,32 +89,48 @@ def test_sigma(allclose):
     nval = 290
     varnames = ["R", "P3", "Q", "P", "S"]
     sigs = {"R": 0.51, "P3": 0.1, "Q": 0.26, "P": 0.13, "S": 11.4}
-    Sigma = gr2m_ensmooth.get_sigma(varnames, sigs, nval)
+    varcorr = np.array([[1, 0.78, 0.79, 0.55, 0.78], \
+                        [0.78, 1, 0.78, 0.64, 0.76], \
+                        [0.79, 0.78, 1, 0.55, 0.77], \
+                        [0.55, 0.64, 0.55, 1, 0.47], \
+                        [0.78, 0.76, 0.77, 0.47, 1.]])
+    varcorr = pd.DataFrame(varcorr, index=varnames, columns=varnames)
+
+    Sigma = gr2m_ensmooth.get_sigma(varnames, sigs, varcorr, nval)
 
     nvar = len(varnames)
     n = nvar*nval
     assert Sigma.shape == (n, n)
 
-    d = np.diag(Sigma)
-    ii = np.arange(0, n, nvar)
-    for i in range(nvar):
-        assert allclose(d[ii+i], sigs[varnames[i]]**2)
+    kk = np.arange(0, n, nvar)
+    eye = np.eye(nval)
+    for i, j in combwr(range(nvar), 2):
+        vi, vj = varnames[i], varnames[j]
+        si, sj = sigs[vi], sigs[vj]
+        cij = varcorr.loc[vi, vj]
+        ii = (kk+i)[:, None]
+        jj = (kk+j)[:, None].T
 
-    assert allclose(Sigma-np.diag(d), 0.)
+        s = si*sj*cij*eye
+        assert allclose(Sigma[ii, jj], s)
+        assert allclose(Sigma[jj.T, ii.T], s.T)
 
 
 def test_sample(allclose):
     nens = 10000
     nval = 500
 
-    sigs = {"A": 1., "B": 3., "C": 0.1}
-    rhos = {"A": 0., "B": 0.8, "C": 0.5}
     varnames = ["B", "C", "A"]
     nvar = len(varnames)
+    sigs = {"A": 1., "B": 3., "C": 0.1}
+    rhos = {"A": 0., "B": 0.8, "C": 0.5}
 
+    r1, r2 = 0.9, 0.8
+    varcorr = np.array([[1, r1, r2], [r1, 1., r1], [r2, r1, 1]])
+    varcorr = pd.DataFrame(varcorr, index=varnames, columns=varnames)
 
-    # Run sampling with lower covariance that does not trigger warning
-    Sigma = gr2m_ensmooth.get_sigma(varnames, sigs, nval)
+    # Run sampling
+    Sigma = gr2m_ensmooth.get_sigma(varnames, sigs, varcorr, nval)
     U = gr2m_ensmooth.sample(Sigma, nens)
 
     # Check characteristics for each variable

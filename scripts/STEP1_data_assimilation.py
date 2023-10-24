@@ -318,6 +318,7 @@ for isite, (siteid, sinfo) in tqdm(enumerate(sites.iterrows()), \
             log10ksp = math.log10(max(1e-10, ksp))
 
             perfs.append({"siteid": siteid, "calperiod": calperiod, \
+                            "objfun": objfun_name, \
                             "nrmse": nrmse, "ksp": ksp})
 
             LOGGER.info(f"DAPERF: NR={nrmse:0.2f} KS={ksp:2.2e}")
@@ -331,34 +332,6 @@ for isite, (siteid, sinfo) in tqdm(enumerate(sites.iterrows()), \
             comment.update(meta)
             csv.write_csv(HXa, fhxa, comment, \
                     source_file, write_index=True)
-
-
-            # plot
-            #HXf = Xf.loc[Xf.state=="Q"].set_index("time").drop("state", axis=1)
-            #HXf = HXf.loc["1997-06-01":"1999-07-01"]
-            #HXa = Xa.loc[Xa.state=="Q"].set_index("time").drop("state", axis=1)
-            #HXa = HXa.loc[HXf.index]
-
-            #HXfq = HXf.quantile([0.5, 0.05, 0.98], axis=1).T
-            #HXaq = HXa.quantile([0.5, 0.05, 0.98], axis=1).T
-            #import matplotlib.pyplot as plt
-            #plt.close("all")
-            #fig, ax = plt.subplots(figsize=(15, 10))
-
-            #x = HXfq.index
-            #ax.plot(x, HXfq.iloc[:, 0], lw=2, color="0.8")
-            #ax.fill_between(x, HXfq.iloc[:, 1], HXfq.iloc[:, 2], \
-            #                        color="0.8", alpha=0.4)
-
-            #ax.plot(x, HXaq.iloc[:, 0], lw=2, color="tab:orange")
-            #ax.fill_between(x, HXaq.iloc[:, 1], HXaq.iloc[:, 2], \
-            #                        color="tab:orange", alpha=0.4)
-
-            #ax.plot(x, mthly.loc[x, "Qobs"], "k--", lw=2)
-
-            #ax.set_yscale("log")
-            #plt.show()
-            #sys.exit()
 
 
 # Store results

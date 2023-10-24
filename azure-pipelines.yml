@@ -99,6 +99,14 @@ steps:
   displayName: daisi_step0
   timeoutInMinutes: 30
 
+- script: |
+    source activate $(CONDA_ENV_NAME)
+    cd $(BUILD_DIR)/pydaisi
+    python scripts/STEP1_data_assimilation.py -d
+  displayName: daisi_step1
+  timeoutInMinutes: 30
+
+
 - task: PublishCodeCoverageResults@1
   displayName: publish_coverage_report
   inputs:
@@ -110,6 +118,13 @@ steps:
   displayName: publish_step0_results
   inputs:
     sourceFolder: '$(BUILD_DIR)/pydaisi/outputs/STEP0_gr2m_calibration'
+    contents: '*.csv'
+    targetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: CopyFiles@2
+  displayName: publish_step1_results
+  inputs:
+    sourceFolder: '$(BUILD_DIR)/pydaisi/outputs/STEP1_data_assimilation'
     contents: '*.csv'
     targetFolder: '$(Build.ArtifactStagingDirectory)'
 

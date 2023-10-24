@@ -86,9 +86,9 @@ model = factory.model_factory(model_name)
 nsites = len(sites)
 results = []
 
-for i, (siteid, row) in tqdm(enumerate(sites.iterrows()), \
+for isite, (siteid, sinfo) in tqdm(enumerate(sites.iterrows()), \
                 total=nsites, desc="Calibrating"):
-    LOGGER.context = f"{siteid} ({i+1}/{nsites})"
+    LOGGER.context = f"{siteid} ({isite+1}/{nsites})"
 
     LOGGER.info("Load data")
     mthly = daisi_data.get_data(siteid)
@@ -103,15 +103,15 @@ for i, (siteid, row) in tqdm(enumerate(sites.iterrows()), \
         fcalib.mkdir(exist_ok=True)
 
         # Run calibration for each period
-        for pername in periods.periods.keys():
+        for calperiod in periods.periods.keys():
 
-            if pername == "per3":
+            if calperiod == "per3":
                 # Skip calibration on the whole period.
                 # Just cal/val
                 continue
 
             LOGGER.info("")
-            LOGGER.info(f"***** Period {pername} *****")
+            LOGGER.info(f"***** Period {calperiod} *****")
 
             # Get calibration object
             warmup = periods.warmup_years*12
@@ -122,7 +122,7 @@ for i, (siteid, row) in tqdm(enumerate(sites.iterrows()), \
 
             # Select calib data
             incal, ocal, itotal, iactive, ical \
-                        = daisi_data.get_inputs_and_obs(mthly, pername)
+                        = daisi_data.get_inputs_and_obs(mthly, calperiod)
 
             # Calibrate
             final, ofun, _, ofun_explore = calib.workflow(ocal, \
@@ -143,7 +143,7 @@ for i, (siteid, row) in tqdm(enumerate(sites.iterrows()), \
             sims.loc[iactive[itotal], "ical_active"] = 1
 
             # Identify validation period
-            pval = periods.get_validation(pername)
+            pval = periods.get_validation(calperiod)
             ival = pval.active.select_index(mthly.index[itotal])
             sims.loc[:, "ival_active"] = 0
             sims.loc[ival, "ival_active"] = 1
@@ -154,7 +154,7 @@ for i, (siteid, row) in tqdm(enumerate(sites.iterrows()), \
                 "INFO_warmup": periods.warmup_years, \
                 "INFO_siteid": int(siteid), \
                 "INFO_objfun": objfun_name, \
-                "INFO_calperiod": pername, \
+                "INFO_calperiod": calperiod, \
                 "INFO_calnval": int(pd.notnull(ocal).sum()), \
                 "INFO_nparamslib": nparamslib
             }
@@ -166,7 +166,7 @@ for i, (siteid, row) in tqdm(enumerate(sites.iterrows()), \
                 meta[f"PARAM_{model_name}_{pname}"] = float(value.round(4))
 
 
-            fs = fcalib / f"sim_{objfun_name}_{siteid}_{pername}.csv"
+            fs = fcalib / f"sim_{objfun_name}_{siteid}_{calperiod}.csv"
             csv.write_csv(sims, fs, "Calibrated simulations", \
                             source_file, write_index=True, \
                             line_terminator="\n")

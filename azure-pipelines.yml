@@ -123,7 +123,7 @@ steps:
 - script: |
     source activate $(CONDA_ENV_NAME)
     cd $(BUILD_DIR)/pydaisi
-    python scripts/STEP3_diagnostic_plot_metrics.py -d
+    python scripts/STEP3_diagnostic_plot_metrics.py
   displayName: daisi_step3_plot
   timeoutInMinutes: 30
 

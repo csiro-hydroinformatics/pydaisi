@@ -144,24 +144,15 @@ steps:
     targetFolder: '$(Build.ArtifactStagingDirectory)'
 
 - task: CopyFiles@2
-  displayName: publish_step0_results
-  inputs:
-    sourceFolder: '$(BUILD_DIR)/pydaisi/outputs/STEP0_gr2m_calibration'
-    contents: '*.csv'
-    targetFolder: '$(Build.ArtifactStagingDirectory)'
-
-- task: CopyFiles@2
-  displayName: publish_step1_results
-  inputs:
-    sourceFolder: '$(BUILD_DIR)/pydaisi/outputs/STEP1_data_assimilation'
-    contents: '*.csv'
-    targetFolder: '$(Build.ArtifactStagingDirectory)'
-
-- task: CopyFiles@2
   displayName: publish_step3_results
   inputs:
     sourceFolder: '$(BUILD_DIR)/pydaisi/outputs/STEP3_diagnostic/images'
     contents: '*.png'
     targetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: $(Build.ArtifactStagingDirectory)
+    artifactName: MyBuildOutputs
 
 

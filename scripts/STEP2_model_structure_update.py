@@ -129,7 +129,7 @@ for isite, (siteid, sinfo) in tqdm(enumerate(sites.iterrows()), \
         lamP = float(meta["config_lamp"])
         lamE = float(meta["config_lame"])
         lamQ = float(meta["config_lamq"])
-        nu = float(meta["config_nu"])
+        nu = float(meta["config_nup"])
 
         fhxa = fxa.parent / re.sub("Xa", "HXa", fxa.name)
         HXa, _ = csv.read_csv(fhxa, index_col="", parse_dates=True)

@@ -78,9 +78,9 @@ fout.mkdir(exist_ok=True, parents=True)
 # Logging
 #----------------------------------------------------------------------
 basename = source_file.stem
-flog = froot / "logs" / f"{basename}.log"
+flog = froot / "logs" / f"{basename}_TASK{taskid}.log"
 if not folder_output is None:
-    flog = folder_output / "logs" / f"{basename}.log"
+    flog = folder_output / "logs" / f"{basename}_TASK{taskid}.log"
 flog.parent.mkdir(exist_ok=True)
 LOGGER = iutils.get_logger(basename, flog=flog, contextual=True, console=False)
 

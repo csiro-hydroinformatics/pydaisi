@@ -83,9 +83,9 @@ ffit = fout.parent / "STEP2_model_structure_update"
 # Logging
 #----------------------------------------------------------------------
 basename = source_file.stem
-flog = froot / "logs" / f"{basename}.log"
+flog = froot / "logs" / f"{basename}_TASK{taskid}.log"
 if not folder_output is None:
-    flog = folder_output / "logs" / f"{basename}.log"
+    flog = folder_output / "logs" / f"{basename}_TASK{taskid}.log"
 flog.parent.mkdir(exist_ok=True)
 LOGGER = iutils.get_logger(basename, flog=flog, contextual=True, console=False)
 
@@ -98,13 +98,6 @@ sites = select_sites(daisi_data.get_sites(), debug, nbatch, taskid)
 
 # Calibration periods
 periods = daisi_data.Periods()
-
-# Calibration results
-fparams = fout.parent / "STEP0_gr2m_calibration" / "calib_results.csv"
-if not fparams.exists():
-    errmess = "Calibration results do not exist. Run STEP0 script."
-    raise ValueError(errmess)
-params, _ = csv.read_csv(fparams)
 
 #----------------------------------------------------------------------
 # Process

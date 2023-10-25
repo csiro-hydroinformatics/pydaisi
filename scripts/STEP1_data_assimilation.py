@@ -92,13 +92,15 @@ if not folder_output is None:
     fout = folder_output / "STEP1_data_assimilation"
 fout.mkdir(exist_ok=True, parents=True)
 
+fcalib = fout.parent / "STEP0_gr2m_calibration"
+
 #----------------------------------------------------------------------
 # Logging
 #----------------------------------------------------------------------
 basename = source_file.stem
-flog = froot / "logs" / f"{basename}.log"
+flog = froot / "logs" / f"{basename}_TASK{taskid}.log"
 if not folder_output is None:
-    flog = folder_output / "logs" / f"{basename}.log"
+    flog = folder_output / "logs" / f"{basename}_TASK{taskid}.log"
 flog.parent.mkdir(exist_ok=True)
 LOGGER = iutils.get_logger(basename, flog=flog, contextual=True, console=False)
 
@@ -111,13 +113,6 @@ sites = select_sites(daisi_data.get_sites(), debug, nbatch, taskid)
 
 # Calibration periods
 periods = daisi_data.Periods()
-
-# Calibration results
-fparams = fout.parent / "STEP0_gr2m_calibration" / "calib_results.csv"
-if not fparams.exists():
-    errmess = "Calibration results do not exist. Run STEP0 script."
-    raise ValueError(errmess)
-params, _ = csv.read_csv(fparams)
 
 #----------------------------------------------------------------------
 # Process
@@ -168,17 +163,14 @@ for isite, (siteid, sinfo) in enumerate(sites.iterrows()):
         # Initialise GR2M model using calibrated parameters
         model.allocate(mthly.loc[idxcal, ["Rain", "Evap"]])
 
-        idxr = (params.INFO_siteid==siteid) \
-                    & (params.INFO_objfun==objfun_name)\
-                    & (params.INFO_calperiod==calperiod)\
-                    & (params.INFO_model=="GR2M")
-        if idxr.sum() != 1:
-            errmess = "Cannot find params for " +\
-                            f"{siteid}/{calperiod}/{objfun_name}"
-            raise ValueError(errmess)
+        # .. get calibrated parameters
+        fp = fcalib / f"calibration_{objfun_name}" / \
+                        f"sim_{objfun_name}_{siteid}_{calperiod}.json"
+        with fp.open("r") as fo:
+            params = json.load(fo)
 
-        X1 = params.loc[idxr, "PARAM_GR2M_X1"].squeeze()
-        X2 = params.loc[idxr, "PARAM_GR2M_X2"].squeeze()
+        X1 = params["PARAM_GR2M_X1"]
+        X2 = params["PARAM_GR2M_X2"]
         Xr = 60.
 
         model.X1 = X1

@@ -79,9 +79,9 @@ fout.mkdir(exist_ok=True, parents=True)
 # Logging
 #----------------------------------------------------------------------
 basename = source_file.stem
-flog = froot / "logs" / f"{basename}.log"
+flog = froot / "logs" / f"{basename}_TASK{taskid}.log"
 if not folder_output is None:
-    flog = folder_output / "logs" / f"{basename}.log"
+    flog = folder_output / "logs" / f"{basename}_TASK{taskid}.log"
 flog.parent.mkdir(exist_ok=True)
 LOGGER = iutils.get_logger(basename, flog=flog, contextual=True, console=False)
 
@@ -100,7 +100,6 @@ periods = daisi_data.Periods()
 #----------------------------------------------------------------------
 model = factory.model_factory(model_name)
 nsites = len(sites)
-results = []
 
 for isite, (siteid, sinfo) in enumerate(sites.iterrows()):
     LOGGER.context = f"{siteid} ({isite+1}/{nsites})"
@@ -174,17 +173,13 @@ for isite, (siteid, sinfo) in enumerate(sites.iterrows()):
 
 
         fs = fcalib / f"sim_{objfun_name}_{siteid}_{calperiod}.csv"
-        csv.write_csv(sims, fs, "Calibrated simulations", \
+        csv.write_csv(sims, fs, meta, \
                         source_file, write_index=True, \
                         line_terminator="\n")
 
-        results.append(meta)
-
-# Store results
-results = pd.DataFrame(results)
-fr = fout / f"calib_results.csv"
-csv.write_csv(results, fr, "Calibrated results", \
-                source_file, compress=False, line_terminator="\n")
+        fp = fs.parent / f"{fs.stem}.json"
+        with fp.open("w") as fo:
+            json.dump(meta, fo, indent=4)
 
 
 LOGGER.info("Process completed")

@@ -11,6 +11,52 @@ from hydrodiy.stat import metrics, transform
 from pydaisi import daisi_utils
 
 
+def get_metricname(metric, long=False):
+    n = re.sub("^.*_|-.*$", "", metric)
+    if n == "ABSFDCFIT100":
+        nm = r"$F_B$"
+        lnm = f"Flow duration curve bias ({nm})"
+
+    elif n == "ELASTrelRAIN":
+        nm = r"$\epsilon_P$"
+        lnm = f"Elasticity to rainfall ({nm})"
+
+    elif n == "ELASTrelEVAP":
+        nm = r"$\epsilon_E$"
+        lnm = f"Elasticity to PET ({nm})"
+
+    elif n == "NRMSERATIO":
+        nm = r"$N_R$"
+        lnm = f"Normalised RMSE ratio ({nm})"
+
+    elif n == "NSELOG":
+        nm = r"$NSE_{log}$"
+        lnm = f"NSE on log flows ({nm})"
+
+    elif n == "NSERECIP":
+        nm = r"$NSE_{rec}$"
+        lnm = f"NSE on reciprocal flows ({nm})"
+
+    elif n == "SPLITKGE":
+        nm = r"$KGE_{split}$"
+        lnm = f"Split KGE ({nm})"
+
+    elif n.startswith("PMR"):
+        ny = int(re.sub("PMR|Y", "", n))
+        nm = r"$PMR_{{{ny}}}$".format(ny=ny)
+        lnm = f"PMR {ny} years ({nm})"
+
+    elif n == "ABSBIAS":
+        nm = r"$1-|B|$"
+        lnm = f"Absolute bias index ({nm})"
+    else:
+        nm = f"${n}$"
+        lnm = nm
+
+    return lnm if long else nm
+
+
+
 def deterministic_metrics(Qobs, Qsim, time_full, ieval, calval, name, perfs=None):
     # Get data
     time = time_full[ieval]

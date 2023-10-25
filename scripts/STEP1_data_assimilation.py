@@ -11,18 +11,22 @@
 
 import sys, os, re, json, math
 import argparse
+from itertools import product as prod
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from hydrodiy.io import csv, iutils
+from hydrodiy.io.hyruns import SiteBatch
 
 from pygme import factory
 from pydaisi import daisi_data, gr2m_update, gr2m_ensmooth,\
                         daisi_perf
 
 from tqdm import tqdm
+
+from select_sites import select_sites
 
 import importlib
 importlib.reload(gr2m_ensmooth)
@@ -36,9 +40,22 @@ parser = argparse.ArgumentParser(\
 
 parser.add_argument("-d", "--debug", help="Debug mode", \
                     action="store_true", default=False)
+parser.add_argument("-t", "--taskid", help="Task id", \
+                    type=int, default=-1)
+parser.add_argument("-n", "--nbatch", help="Number of batch processes", \
+                    type=int, default=4)
+parser.add_argument("-fo", "--folder_output", help="Output folder", \
+                    type=str, default=None)
 args = parser.parse_args()
 
 debug = args.debug
+taskid = args.taskid
+nbatch = args.nbatch
+
+folder_output = args.folder_output
+if not folder_output is None:
+    folder_output = Path(folder_output)
+    assert folder_output.exists()
 
 # Model calibrated in this script
 # See pygme.models for a list of potential models
@@ -46,6 +63,8 @@ model_name = "GR2M"
 
 # Objective functions
 objfun_names = ["kge", "bc02"]
+
+calperiods = ["per1", "per2"]
 
 # Configure data assimilation
 nens = 500
@@ -71,6 +90,8 @@ source_file = Path(__file__).resolve()
 froot = source_file.parent.parent
 
 fout = froot / "outputs" / "STEP1_data_assimilation"
+if not folder_output is None:
+    fout = folder_output / "STEP1_data_assimilation"
 fout.mkdir(exist_ok=True, parents=True)
 
 #----------------------------------------------------------------------
@@ -78,6 +99,8 @@ fout.mkdir(exist_ok=True, parents=True)
 #----------------------------------------------------------------------
 basename = source_file.stem
 flog = froot / "logs" / f"{basename}.log"
+if not folder_output is None:
+    flog = folder_output / "logs" / f"{basename}.log"
 flog.parent.mkdir(exist_ok=True)
 LOGGER = iutils.get_logger(basename, flog=flog, contextual=True, console=False)
 
@@ -86,12 +109,7 @@ LOGGER = iutils.get_logger(basename, flog=flog, contextual=True, console=False)
 #----------------------------------------------------------------------
 
 # Select siteids. All sites by default.
-sites = daisi_data.get_sites()
-
-if debug:
-    #siteids_debug = [405218, 234201, 405240, 401013, 410038, 219017]
-    siteids_debug = [405218]
-    sites = sites.loc[siteids_debug]
+sites = select_sites(daisi_data.get_sites(), debug, nbatch, taskid)
 
 # Calibration periods
 periods = daisi_data.Periods()
@@ -117,7 +135,10 @@ for isite, (siteid, sinfo) in tqdm(enumerate(sites.iterrows()), \
     LOGGER.info("Load data")
     mthly = daisi_data.get_data(siteid)
 
-    for objfun_name in objfun_names:
+    for objfun_name, calperiod in prod(objfun_names, calperiods):
+        LOGGER.info("")
+        LOGGER.info(f"{objfun_name} - Period {calperiod}")
+
         # Assimilation output folder
         fassim = fout / f"assim_{objfun_name}"
         fassim.mkdir(exist_ok=True)
@@ -125,213 +146,203 @@ for isite, (siteid, sinfo) in tqdm(enumerate(sites.iterrows()), \
         fimg = fassim / "images"
         fimg.mkdir(exist_ok=True)
 
-        # Run calibration for each period
-        for calperiod in periods.periods.keys():
+        # Instanciate model
+        model = gr2m_update.GR2MUPDATE()
 
-            if calperiod == "per3":
-                # Skip calibration on the whole period.
-                # Just cal/val
-                continue
+        # Set transform
+        model.lamQ = lamQ
+        model.lamP = lamP
+        model.lamE = lamE
+        model.nu = nu
 
-            LOGGER.info(f"Run {objfun_name} - calperiod {calperiod}")
+        # Calibration period
+        calp = periods.get_periodset(calperiod)
+        idxcal = calp.total.select_index(mthly.index)
+        idxcal_active = calp.active.select_index(mthly.index)[idxcal]
 
-            # Instanciate model
-            model = gr2m_update.GR2MUPDATE()
+        # Get streamflow data during calib
+        Qobs = mthly.Qobs.loc[idxcal]
+        Qobs[~idxcal_active] = np.nan
+        Qobscal = Qobs.copy()
 
-            # Set transform
-            model.lamQ = lamQ
-            model.lamP = lamP
-            model.lamE = lamE
-            model.nu = nu
+        obs = pd.DataFrame({"Q": Qobs})
+        obscal = pd.DataFrame({"Q": Qobscal})
 
-            # Calibration period
-            calp = periods.get_periodset(calperiod)
-            idxcal = calp.total.select_index(mthly.index)
-            idxcal_active = calp.active.select_index(mthly.index)[idxcal]
+        # Initialise GR2M model using calibrated parameters
+        model.allocate(mthly.loc[idxcal, ["Rain", "Evap"]])
 
-            # Get streamflow data during calib
-            Qobs = mthly.Qobs.loc[idxcal]
-            Qobs[~idxcal_active] = np.nan
-            Qobscal = Qobs.copy()
+        idxr = (params.INFO_siteid==siteid) \
+                    & (params.INFO_objfun==objfun_name)\
+                    & (params.INFO_calperiod==calperiod)\
+                    & (params.INFO_model=="GR2M")
+        if idxr.sum() != 1:
+            errmess = "Cannot find params for " +\
+                            f"{siteid}/{calperiod}/{objfun_name}"
+            raise ValueError(errmess)
 
-            obs = pd.DataFrame({"Q": Qobs})
-            obscal = pd.DataFrame({"Q": Qobscal})
+        X1 = params.loc[idxr, "PARAM_GR2M_X1"].squeeze()
+        X2 = params.loc[idxr, "PARAM_GR2M_X2"].squeeze()
+        Xr = 60.
 
-            # Initialise GR2M model using calibrated parameters
-            model.allocate(mthly.loc[idxcal, ["Rain", "Evap"]])
+        model.X1 = X1
+        model.X2 = X2
+        model.Xr = Xr
 
-            idxr = (params.INFO_siteid==siteid) \
-                        & (params.INFO_objfun==objfun_name)\
-                        & (params.INFO_calperiod==calperiod)\
-                        & (params.INFO_model=="GR2M")
-            if idxr.sum() != 1:
-                errmess = "Cannot find params for " +\
-                                f"{siteid}/{calperiod}/{objfun_name}"
-                raise ValueError(errmess)
+        model.initialise_fromdata()
 
-            X1 = params.loc[idxr, "PARAM_GR2M_X1"].squeeze()
-            X2 = params.loc[idxr, "PARAM_GR2M_X2"].squeeze()
-            Xr = 60.
+        LOGGER.info("Run ENKS")
+        # .. create ensmooth object
+        ensmooth = gr2m_ensmooth.EnSmooth(model, \
+                obscal, stdfacts, debug, nens)
 
-            model.X1 = X1
-            model.X2 = X2
-            model.Xr = Xr
+        # .. configure plotting
+        ensmooth.plot_dir = fimg
+        ensmooth.plot_ax_size = (20, 3)
+        ensmooth.plot_freq = 1000
+        y1 = calp.active.end.year-5
+        y2 = calp.active.end.year
+        ensmooth.plot_period = [y1, y2]
 
-            model.initialise_fromdata()
+        # .. initialise object
+        ensmooth.initialise()
 
-            LOGGER.info("Run ENKS")
-            # .. create ensmooth object
-            ensmooth = gr2m_ensmooth.EnSmooth(model, \
-                    obscal, stdfacts, debug, nens)
+        context = f"{siteid}_{objfun_name}_{calperiod}"
+        message = f"EnSmooth {siteid} ({isite+1}/{nsites}) "+\
+                    f"{objfun_name}-{calperiod}"
+        ensmooth.run(context, message)
 
-            # .. configure plotting
-            ensmooth.plot_dir = fimg
-            ensmooth.plot_ax_size = (20, 3)
-            ensmooth.plot_freq = 1000
-            y1 = calp.active.end.year-5
-            y2 = calp.active.end.year
-            ensmooth.plot_period = [y1, y2]
+        # Retrive key data from ensmooth
+        nstates, nens, Xa = ensmooth.nstates_assim, ensmooth.nens, ensmooth.Xa
+        sims0 = ensmooth.sims0
+        transQ = ensmooth.transQ
+        transP = ensmooth.transP
+        transE = ensmooth.transE
+        cols = [f"Ens{iens:03d}" for iens in range(nens)]
+        iQ = ensmooth.assim_states.index("Q")
 
-            # .. initialise object
-            ensmooth.initialise()
+        meta = {
+            "INFO_siteid": int(siteid), \
+            "INFO_calperiod": calperiod, \
+            "INFO_objfun": objfun_name, \
+            "INFO_nens": nens, \
+            "CONFIG_lamQ": transQ.lam,\
+            "CONFIG_nuQ": transQ.nu,\
+            "CONFIG_lamE": transE.lam,\
+            "CONFIG_nuE": transE.nu,\
+            "CONFIG_lamP": transP.lam,\
+            "CONFIG_nuP": transP.nu,\
+            "CONFIG_alphae": alphae, \
+            "PARAM_GR2M_X1": X1, \
+            "PARAM_GR2M_X2": X2, \
+            "PARAM_GR2M_Xr": Xr
+        }
 
-            context = f"{siteid}_{objfun_name}_{calperiod}"
-            message = f"EnSmooth {siteid} ({isite+1}/{nsites}) "+\
-                        f"{objfun_name}-{calperiod}"
-            ensmooth.run(context, message)
+        LOGGER.info("Store - Xa")
+        snames = ensmooth.assim_states
+        nparams = 0 # no parameter assim
 
-            # Retrive key data from ensmooth
-            nstates, nens, Xa = ensmooth.nstates_assim, ensmooth.nens, ensmooth.Xa
-            sims0 = ensmooth.sims0
-            transQ = ensmooth.transQ
-            transP = ensmooth.transP
-            transE = ensmooth.transE
-            cols = [f"Ens{iens:03d}" for iens in range(nens)]
-            iQ = ensmooth.assim_states.index("Q")
+        # .. back transform corrected state data to
+        #   facilitate data interpretation
+        if "P" in snames:
+            iP = snames.index("P")
+            Xa[nparams+iP::nstates] = \
+                            transP.backward(Xa[nparams+iP::nstates]) #P
 
-            meta = {
-                "INFO_siteid": int(siteid), \
-                "INFO_calperiod": calperiod, \
-                "INFO_objfun": objfun_name, \
-                "INFO_nens": nens, \
-                "CONFIG_lamQ": transQ.lam,\
-                "CONFIG_nuQ": transQ.nu,\
-                "CONFIG_lamE": transE.lam,\
-                "CONFIG_nuE": transE.nu,\
-                "CONFIG_lamP": transP.lam,\
-                "CONFIG_nuP": transP.nu,\
-                "CONFIG_alphae": alphae, \
-                "PARAM_GR2M_X1": X1, \
-                "PARAM_GR2M_X2": X2, \
-                "PARAM_GR2M_Xr": Xr
-            }
+        if "P3" in snames:
+            iP3 = snames.index("P3")
+            Xa[nparams+iP3::nstates] = \
+                            transP.backward(Xa[nparams+iP3::nstates]) #P3
 
-            LOGGER.info("Store - Xa")
-            snames = ensmooth.assim_states
-            nparams = 0 # no parameter assim
+        if "E" in snames:
+            iE = snames.index("E")
+            Xa[nparams+iE::nstates] = \
+                            transP.backward(Xa[nparams+iE::nstates]) #E
 
-            # .. back transform corrected state data to
-            #   facilitate data interpretation
-            if "P" in snames:
-                iP = snames.index("P")
-                Xa[nparams+iP::nstates] = \
-                                transP.backward(Xa[nparams+iP::nstates]) #P
+        if "AE" in snames:
+            iAE = snames.index("AE")
+            Xa[nparams+iAE::nstates] = \
+                            transE.backward(Xa[nparams+iAE::nstates]) #AE
 
-            if "P3" in snames:
-                iP3 = snames.index("P3")
-                Xa[nparams+iP3::nstates] = \
-                                transP.backward(Xa[nparams+iP3::nstates]) #P3
+        HXa = Xa[nparams+iQ::nstates]
+        Xa[nparams+iQ::nstates] = transQ.backward(HXa) #Q
+        Xa = pd.DataFrame(Xa, columns=cols)
+        time = np.repeat(Qobs.index, nstates)
+        Xa.loc[:, "time"] = time
 
-            if "E" in snames:
-                iE = snames.index("E")
-                Xa[nparams+iE::nstates] = \
-                                transP.backward(Xa[nparams+iE::nstates]) #E
+        sn = np.repeat(np.array(snames)[None, :], len(HXa), axis=0).ravel()
+        Xa.loc[:, "state"] = sn
 
-            if "AE" in snames:
-                iAE = snames.index("AE")
-                Xa[nparams+iAE::nstates] = \
-                                transE.backward(Xa[nparams+iAE::nstates]) #AE
+        fn = f"ensmooth_Xa_{siteid}_{calperiod}.csv"
+        fxa = fassim / fn
+        comment = {"comment": "Enks Xa data"}
+        comment.update(meta)
+        csv.write_csv(Xa, fxa, comment, \
+                source_file, write_index=True)
 
-            HXa = Xa[nparams+iQ::nstates]
-            Xa[nparams+iQ::nstates] = transQ.backward(HXa) #Q
-            Xa = pd.DataFrame(Xa, columns=cols)
-            time = np.repeat(Qobs.index, nstates)
-            Xa.loc[:, "time"] = time
+        # Process openloop
+        LOGGER.info("Store - Xf")
+        tend = (Xa.shape[0]-nparams)//nstates
+        Xf = ensmooth.openloop(0, tend)
 
-            sn = np.repeat(np.array(snames)[None, :], len(HXa), axis=0).ravel()
-            Xa.loc[:, "state"] = sn
+        if "P" in snames:
+            Xf[iP::nstates] = transP.backward(Xf[iP::nstates]) #P
 
-            fn = f"ensmooth_Xa_{siteid}_{calperiod}.csv"
-            fxa = fassim / fn
-            comment = {"comment": "Enks Xa data"}
-            comment.update(meta)
-            csv.write_csv(Xa, fxa, comment, \
-                    source_file, write_index=True)
+        if "P3" in snames:
+            Xf[iP3::nstates] = transP.backward(Xf[iP3::nstates]) #P3
 
-            # Process openloop
-            LOGGER.info("Store - Xf")
-            tend = (Xa.shape[0]-nparams)//nstates
-            Xf = ensmooth.openloop(0, tend)
+        if "E" in snames:
+            Xf[iE::nstates] = transE.backward(Xf[iE::nstates]) #E
 
-            if "P" in snames:
-                Xf[iP::nstates] = transP.backward(Xf[iP::nstates]) #P
+        if "AE" in snames:
+            Xf[iAE::nstates] = transE.backward(Xf[iAE::nstates]) #AE
 
-            if "P3" in snames:
-                Xf[iP3::nstates] = transP.backward(Xf[iP3::nstates]) #P3
+        HXf = Xf[iQ::nstates]
+        Xf[iQ::nstates] = transQ.backward(HXf) #Q
+        Xf = pd.DataFrame(Xf, columns=cols)
+        Xf.loc[:, "time"] = time[nparams:]
+        Xf.loc[:, "state"] = sn[nparams:]
 
-            if "E" in snames:
-                Xf[iE::nstates] = transE.backward(Xf[iE::nstates]) #E
+        fn = f"ensmooth_Xf_{siteid}_{calperiod}.csv"
+        fxf = fassim / fn
+        comment = {"comment": "Enks Xf data"}
+        comment.update(meta)
+        csv.write_csv(Xf, fxf, comment, \
+                source_file, write_index=True)
 
-            if "AE" in snames:
-                Xf[iAE::nstates] = transE.backward(Xf[iAE::nstates]) #AE
+        # HXa
+        LOGGER.info("Store - HXa")
+        HXa = pd.DataFrame(HXa, index=Qobs.index, columns=cols)
+        HXa.loc[:, "Qobs"] = Qobs
+        HXa.loc[:, "Qsim"] = sims0.Q.values
+        HXa.loc[:, "P3sim"] = sims0.P3.values
+        HXa.loc[:, "Ssim"] = sims0.S.values
+        HXa.loc[:, "Rsim"] = sims0.R.values
+        HXa.loc[:, "Rain"] = model.inputs[:, 0]
+        HXa.loc[:, "Evap"] = model.inputs[:, 1]
 
-            HXf = Xf[iQ::nstates]
-            Xf[iQ::nstates] = transQ.backward(HXf) #Q
-            Xf = pd.DataFrame(Xf, columns=cols)
-            Xf.loc[:, "time"] = time[nparams:]
-            Xf.loc[:, "state"] = sn[nparams:]
+        HXa.loc[:, "ISCAL"] = 0
+        HXa.loc[idxcal_active, "ISCAL"] = 1
 
-            fn = f"ensmooth_Xf_{siteid}_{calperiod}.csv"
-            fxf = fassim / fn
-            comment = {"comment": "Enks Xf data"}
-            comment.update(meta)
-            csv.write_csv(Xf, fxf, comment, \
-                    source_file, write_index=True)
+        ens = HXa.filter(regex="Ens", axis=1)
+        obs = HXa.Qobs
+        _, nrmse, ksp, pits = daisi_perf.ensemble_metrics(obs, ens)
+        log10ksp = math.log10(max(1e-10, ksp))
 
-            # HXa
-            LOGGER.info("Store - HXa")
-            HXa = pd.DataFrame(HXa, index=Qobs.index, columns=cols)
-            HXa.loc[:, "Qobs"] = Qobs
-            HXa.loc[:, "Qsim"] = sims0.Q.values
-            HXa.loc[:, "P3sim"] = sims0.P3.values
-            HXa.loc[:, "Ssim"] = sims0.S.values
-            HXa.loc[:, "Rsim"] = sims0.R.values
-            HXa.loc[:, "Rain"] = model.inputs[:, 0]
-            HXa.loc[:, "Evap"] = model.inputs[:, 1]
+        perfs.append({"siteid": siteid, "calperiod": calperiod, \
+                        "objfun": objfun_name, \
+                        "nrmse": nrmse, "ksp": ksp})
 
-            HXa.loc[:, "ISCAL"] = 0
-            HXa.loc[idxcal_active, "ISCAL"] = 1
+        LOGGER.info(f"DAPERF: NR={nrmse:0.2f} KS={ksp:2.2e}")
 
-            ens = HXa.filter(regex="Ens", axis=1)
-            obs = HXa.Qobs
-            _, nrmse, ksp, pits = daisi_perf.ensemble_metrics(obs, ens)
-            log10ksp = math.log10(max(1e-10, ksp))
-
-            perfs.append({"siteid": siteid, "calperiod": calperiod, \
-                            "objfun": objfun_name, \
-                            "nrmse": nrmse, "ksp": ksp})
-
-            LOGGER.info(f"DAPERF: NR={nrmse:0.2f} KS={ksp:2.2e}")
-
-            fhxa = fxa.parent / f"{re.sub('Xa', 'HXa', fxa.stem)}.csv"
-            comment = {\
-                "comment": "Enks HXa data", \
-                "METRIC_CAL_NRMSERATIO-DA": nrmse, \
-                "METRIC_CAL_KSLOG10PV-DA":log10ksp, \
-            }
-            comment.update(meta)
-            csv.write_csv(HXa, fhxa, comment, \
-                    source_file, write_index=True)
+        fhxa = fxa.parent / f"{re.sub('Xa', 'HXa', fxa.stem)}.csv"
+        comment = {\
+            "comment": "Enks HXa data", \
+            "METRIC_CAL_NRMSERATIO-DA": nrmse, \
+            "METRIC_CAL_KSLOG10PV-DA":log10ksp, \
+        }
+        comment.update(meta)
+        csv.write_csv(HXa, fhxa, comment, \
+                source_file, write_index=True)
 
 
 # Store results

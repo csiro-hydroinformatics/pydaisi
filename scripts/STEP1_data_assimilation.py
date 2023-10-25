@@ -14,6 +14,9 @@ import argparse
 from itertools import product as prod
 from pathlib import Path
 
+import warnings
+warnings.filterwarnings("ignore")
+
 import numpy as np
 import pandas as pd
 

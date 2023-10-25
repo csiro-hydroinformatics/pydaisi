@@ -14,6 +14,9 @@ import argparse
 from pathlib import Path
 from string import ascii_letters as letters
 
+import warnings
+warnings.filterwarnings("ignore")
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt

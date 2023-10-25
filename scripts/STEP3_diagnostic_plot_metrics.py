@@ -42,6 +42,9 @@ if not folder_output is None:
 # Objective functions
 objfun_names = ["kge", "bc02"]
 
+# .. benchmark objective function (to compare with other calib of GR2M)
+objfun_bench_names = ["bc02", "kge"]
+
 # Selection of metrics
 metric_names = [
     "VAL_KGE", \
@@ -75,12 +78,14 @@ froot = source_file.parent.parent
 fout = froot / "outputs" / "STEP3_diagnostic"
 if not folder_output is None:
     fout = folder_output / "STEP3_diagnostic"
-fout.mkdir(exist_ok=True, parents=True)
+
+assert fout.exists()
 
 fimg = fout / "images"
 fimg.mkdir(exist_ok=True)
 
 fmetrics = fout / "metrics"
+assert fmetrics.exists()
 
 #----------------------------------------------------------------------
 # Logging
@@ -94,7 +99,6 @@ LOGGER = iutils.get_logger(basename, flog=flog, contextual=True, console=False)
 
 #----------------------------------------------------------------------
 # Get data
-#----------------------------------------------------------------------
 fmet = fmetrics.parent / "daisi_metrics.csv"
 fz = fmet.parent / f"{fmet.stem}.zip"
 if not fz.exists():
@@ -131,12 +135,23 @@ for objfun_name in objfun_names:
         cc = [f"METRIC_{metric_name}_GR2M", \
                 f"METRIC_{metric_name}_GR2MUPDATE"]
 
+        # Get data corresponding to objective function
         idx = metrics.INFO_OBJFUN == objfun_name
         df = metrics.loc[idx, cc]
 
         gr2m_name = f"GR2M-{objfun_name}"
         df.columns = [gr2m_name, "DAISI"]
 
+        # Get data corresponding to benchmark objective function
+        objfun_bench_name = objfun_bench_names[objfun_names.index(objfun_name)]
+        idx_bench = metrics.INFO_OBJFUN == objfun_bench_name
+        se = metrics.loc[idx_bench, cc[0]]
+        gr2m_bench_name = f"GR2M-{objfun_bench_name}"
+        df.loc[:, gr2m_bench_name] = se.values
+
+        df = df.loc[:, [gr2m_name, gr2m_bench_name, "DAISI"]]
+
+        # plot boxplot
         bp = boxplot.Boxplot(df)
         bp.median.show_text = True
         bp.draw(ax)

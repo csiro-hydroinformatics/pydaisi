@@ -23,8 +23,6 @@ from pydaisi import daisi_data
 
 from select_sites import select_sites
 
-from tqdm import tqdm
-
 #----------------------------------------------------------------------
 # Config
 #----------------------------------------------------------------------
@@ -32,7 +30,7 @@ parser = argparse.ArgumentParser(\
     description="Calibration of the GR2M model", \
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument("-d", "--debug", help="Debug mode", \
+parser.add_argument("-d", "--debug", help="Debug mode (restricted site list)", \
                     action="store_true", default=False)
 parser.add_argument("-t", "--taskid", help="Task id", \
                     type=int, default=-1)
@@ -104,8 +102,7 @@ model = factory.model_factory(model_name)
 nsites = len(sites)
 results = []
 
-for isite, (siteid, sinfo) in tqdm(enumerate(sites.iterrows()), \
-                total=nsites, desc="Calibrating"):
+for isite, (siteid, sinfo) in enumerate(sites.iterrows()):
     LOGGER.context = f"{siteid} ({isite+1}/{nsites})"
 
     LOGGER.info("Load data")

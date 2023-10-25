@@ -24,8 +24,6 @@ from pygme import factory
 from pydaisi import daisi_data, gr2m_update, gr2m_ensmooth,\
                         daisi_perf
 
-from tqdm import tqdm
-
 from select_sites import select_sites
 
 import importlib
@@ -38,11 +36,11 @@ parser = argparse.ArgumentParser(\
     description="DAISI STEP 1 - data assimilation", \
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument("-d", "--debug", help="Debug mode", \
+parser.add_argument("-d", "--debug", help="Debug mode (restricted site list)", \
                     action="store_true", default=False)
-parser.add_argument("-t", "--taskid", help="Task id", \
+parser.add_argument("-t", "--taskid", help="Site batch number (task id)",\
                     type=int, default=-1)
-parser.add_argument("-n", "--nbatch", help="Number of batch processes", \
+parser.add_argument("-n", "--nbatch", help="Number of site batches", \
                     type=int, default=4)
 parser.add_argument("-fo", "--folder_output", help="Output folder", \
                     type=str, default=None)
@@ -128,8 +126,7 @@ model = factory.model_factory(model_name)
 nsites = len(sites)
 perfs = []
 
-for isite, (siteid, sinfo) in tqdm(enumerate(sites.iterrows()), \
-                total=nsites, desc="Smoothing", disable=debug):
+for isite, (siteid, sinfo) in enumerate(sites.iterrows()):
     LOGGER.context = f"{siteid} ({isite+1}/{nsites})"
 
     LOGGER.info("Load data")

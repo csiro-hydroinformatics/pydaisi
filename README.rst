@@ -7,7 +7,12 @@ model.
 
 What is pydaisi?
 ~~~~~~~~~~~~~~~~
-
+This package implements the Data Assimilation Informed model Structure
+Improvement (DAISI) method described in the following paper:
+Lerat, J., Chiew, F., Robertson, D., Andreassian, V., Zheng, H. (2023), 
+"Data Assimilation Informed model Structure Improvement (DAISI) for robust
+prediction under climate change: Application to 201 catchments in southeastern
+Australia", WRR, Submitted.
 
 
 Installation
@@ -21,14 +26,17 @@ Basic use
 ~~~~~~~~~
 
 To access the data:
-   .. code:: 
+   .. code-block:: python 
        from pydaisi import daisi_data
        
-       # Select a site id 
+       # Get the site meta data
+       sites = daisi_data.get_sites()
+
+       # Select a site id among the 201 catchments 
        # For example the Jamieson River at Gerrang Bridge,
        # (site ID 405218)
        siteid = 405218
-       monthly_data = dais_data.get_data(siteid)
+       monthly_data = daisi_data.get_data(siteid)
 
        print(monthly_data) 
        # This command shows:
@@ -46,8 +54,39 @@ To access the data:
        # 2019-05-01  138.3442   44.7638    8.6404
        # 2019-06-01  141.6448   32.5938   43.1690
 
-To run DAISI applied to GR2M:
-TODO
+
+To run DAISI applied to the GR2M model:
+   .. code-block:: 
+       # Run DAISI step 0 - calibration of GR2M rainfall runoff model
+       # by default, the script calibrates the model for the 
+       # 201 catchments. 
+       python scripts/STEP0_gr2m_calibration.py
+       
+       # The scripts can be run over a subset of sites (batch) 
+       # using the -n (number of batch) and -t (taskid=0..n-1) options
+       # This is useful if one wants to run the script using 
+       # parallel computing. The same options are available for 
+       # all scripts mentioned below.
+
+       # Run DAISI step 1 - apply Ensemble Smoother algorithym to GR2M
+       python scripts/STEP1_data_assimilation.py
+
+       # Run DAISI step 2 - fitting of update coefficients
+       python scripts/STEP2_model_structure_update.py
+
+       # Run DAISI step 3 - Computation of diagnostic metrics
+       python scripts/STEP3_dianostic_compute_metrics.py
+
+       # Run DAISI step 3 - Distribution of performance
+       python scripts/STEP3_dianostic_plot_metrics.py
+
+
+
+License
+~~~~~~~~~
+
+The source code and documentation of the pydaisi package is licensed under the
+`BSD license <https://opensource.org/license/bsd-3-clause/>`__.
 
 License
 ~~~~~~~~~

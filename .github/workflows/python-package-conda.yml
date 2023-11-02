@@ -1,0 +1,126 @@
+name: Build pydaisi
+
+on: [push]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      max-parallel: 5
+    
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.10'
+     
+      - name: Add conda to system path
+        run: |
+          # $CONDA is an environment variable pointing to the root of the miniconda directory
+          echo $CONDA/bin >> $GITHUB_PATH
+      
+      - name: Create conda environment if needed
+        run: |
+           source $CONDA/etc/profile.d/conda.sh
+           conda env create -f env_mini.yml
+
+      - name : Install hydrodiy package in conda env 
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          mkdir -p src
+          cd src
+          git clone https://github.com/csiro-hydroinformatics/hydrodiy.git
+          cd hydrodiy
+          echo "--- hydrodiy install : located in $PWD ---"
+          pip install -e .
+
+      - name : Install pygme package in conda env 
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          mkdir -p src
+          cd src
+          git clone https://github.com/csiro-hydroinformatics/pygme.git
+          cd pygme
+          echo "--- pygme install : located in $PWD ---"
+          pip install -e .
+
+      - name : Install pydaisi package in conda env 
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          echo "--- pydaisi install : located in $PWD ---"
+          pip install -e .
+
+      - name: Run tests
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          echo "--- pydaisi test : located in $PWD ---"
+          pytest --cov=pydaisi --cov-config=.coveragerc --junitxml=junit/test-results.xml --cov-report=xml --cov-report=html tests
+      
+      - name: Upload pytest test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: pytest-results
+          path: junit/test-results.xml
+        
+        # Use always() to always run this step to publish test results when there are test failures
+        if: ${{ always() }}
+
+      - name: Upload to codecov
+        uses: codecov/codecov-action@v3        
+
+
+      - name : Run DAISI Step 0 (calibration)
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          echo "--- pydaisi Step 0 : located in $PWD ---"
+          python scripts/STEP0_gr2m_calibration.py -d
+
+      - name : Run DAISI Step 1 (data assimilation)
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          echo "--- pydaisi Step 1 : located in $PWD ---"
+          python scripts/STEP1_data_assimilation.py -d
+
+      - name : Run DAISI Step 2 (model structure update)
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          echo "--- pydaisi Step 2 : located in $PWD ---"
+          python scripts/STEP2_model_structure_update.py -d
+
+      - name : Run DAISI Step 3 (model diagnostic)
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          echo "--- pydaisi Step 3-diag : located in $PWD ---"
+          python scripts/STEP3_diagnostic_compute_metrics.py -d
+
+      - name : Run DAISI Step 3 (plot)
+        run: |
+          source $CONDA/etc/profile.d/conda.sh
+          conda activate env_mini
+          cd $GITHUB_WORKSPACE
+          echo "--- pydaisi Step 3-plot : located in $PWD ---"
+          python scripts/STEP3_diagnostic_plot_metrics.py
+
+

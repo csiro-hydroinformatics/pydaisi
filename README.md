@@ -1,5 +1,5 @@
 # pydaisi
-[![CI](https://github.com/csiro-hydroinformatics/pydaisi/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/csiro-hydroinformatics/pydaisi/actions/workflows/python-package-conda.yml) [![codecov](https://codecov.io/gh/csiro-hydroinformatics/pydaisi/graph/badge.svg?token=ARBFW69TI3)](https://codecov.io/gh/csiro-hydroinformatics/pydaisi)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10065353.svg)](https://doi.org/10.5281/zenodo.10065353) [![CI](https://github.com/csiro-hydroinformatics/pydaisi/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/csiro-hydroinformatics/pydaisi/actions/workflows/python-package-conda.yml) [![codecov](https://codecov.io/gh/csiro-hydroinformatics/pydaisi/graph/badge.svg?token=ARBFW69TI3)](https://codecov.io/gh/csiro-hydroinformatics/pydaisi)
 
 Python Data Assimilation Informed model Structure Improvement (PyDAISI): Python
 code to run the PyDAISI method applied to the GR2M monthly rainfall-runoff

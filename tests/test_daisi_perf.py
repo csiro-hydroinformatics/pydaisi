@@ -15,6 +15,18 @@ from pydaisi import daisi_perf, daisi_data
 
 from test_gr2m_update import get_params, NSITES, SITEIDS
 
+def test_get_metricname():
+
+    names = ["ABSFDCFIT100", "ELASTrelRAIN", "ELASTrelEVAP", \
+                "NRMSERATIO", "NSELOG", "NSERECIP", "SPLITKGE", \
+                "ABSBIAS"]
+    for name in names:
+        sn = daisi_perf.get_metricname(name, False)
+        ln = daisi_perf.get_metricname(name, True)
+        assert sn != name
+
+
+
 def test_metrics():
     model = model_factory("GR2M")
     defaults = model.params.defaults

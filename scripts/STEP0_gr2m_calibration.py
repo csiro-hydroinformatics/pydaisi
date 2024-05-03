@@ -177,8 +177,7 @@ for isite, (siteid, sinfo) in enumerate(sites.iterrows()):
 
         fs = fcalib / f"sim_{objfun_name}_{siteid}_{calperiod}.csv"
         csv.write_csv(sims, fs, meta, \
-                        source_file, write_index=True, \
-                        line_terminator="\n")
+                        source_file, write_index=True)
 
         fp = fs.parent / f"{fs.stem}.json"
         with fp.open("w") as fo:

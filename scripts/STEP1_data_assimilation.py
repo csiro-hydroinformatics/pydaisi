@@ -341,7 +341,7 @@ for isite, (siteid, sinfo) in enumerate(sites.iterrows()):
 perfs = pd.DataFrame(perfs)
 fr = fout / f"assim_results.csv"
 csv.write_csv(perfs, fr, "Data Assimilation results", \
-                source_file, compress=False, line_terminator="\n")
+                source_file, compress=False)
 
 
 LOGGER.info("Process completed")

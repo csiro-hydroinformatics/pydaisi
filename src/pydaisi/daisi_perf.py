@@ -84,17 +84,16 @@ def deterministic_metrics(Qobs, Qsim, time_full, ieval, calval, name, perfs=None
     skge = np.array(skge).mean()
     perfs[f"METRIC_{calval}_SPLITKGE_{name}"] = skge
 
-
     # Multi year PMR (see Royer-Gaspard, 2021, page 98)
-    o, s = pd.Series(Qobs, index=time_full), pd.Series(Qsim, index=time_full)
-    myobs = o[ieval].mean()
     ny = 5
-    ynobs = o.rolling(ny).mean()[ieval]
-    ynsim = s.rolling(ny).mean()[ieval]
-    ynerr = ynsim-ynobs
-    mynerr = ynerr.mean()
+    yobs, ysim = [pd.Series(se, index=time).resample("YS")\
+                                    .sum().rolling(ny).mean()\
+                                for se in [qo, qs]]
+    yerr = ysim-yobs
+    mobs = yobs.mean()
+    merr = yerr.mean()
     perfs[f"METRIC_{calval}_PMR{ny}Y_{name}"] = \
-                            float(2*np.abs(ynerr-mynerr).mean()/myobs)
+                            float(2*np.abs(yerr-merr).mean()/mobs)
 
     # Offset to avoid zero flow issue
     eps = 1.0
